@@ -102,20 +102,20 @@ namespace unifex
             scope_guard g{[&]() noexcept {
               valueStorage.destruct();
             }};
-            return static_cast<std::tuple<Values...>&&>(valueStorage.get());
+            return std::move(valueStorage.get());
           }
           ();
 
           std::apply(
               [&](Values&&... values) {
                 unifex::set_value(
-                    static_cast<Receiver&&>(op->receiver_),
-                    static_cast<Values&&>(values)...);
+                    std::move(op->receiver_),
+                    std::move(values)...);
               },
-              static_cast<std::tuple<Values...>&&>(values));
+              std::move(values));
         } catch (...) {
           unifex::set_error(
-              static_cast<Receiver&&>(op->receiver_), std::current_exception());
+              std::move(op->receiver_), std::current_exception());
         }
       }
 
@@ -132,8 +132,8 @@ namespace unifex
         valueStorage.destruct();
 
         unifex::set_error(
-            static_cast<Receiver&&>(op->receiver_),
-            static_cast<Error&&>(error));
+            std::move(op->receiver_),
+            std::move(error));
       }
 
       void set_done() && noexcept {
@@ -147,7 +147,7 @@ namespace unifex
         auto& valueStorage = op->value_.template get<std::tuple<Values...>>();
         valueStorage.destruct();
 
-        unifex::set_done(static_cast<Receiver&&>(op->receiver_));
+        unifex::set_done(std::move(op->receiver_));
       }
 
       template <
@@ -167,9 +167,9 @@ namespace unifex
                                           const Receiver&,
                                           Args...>)
           -> callable_result_t<CPO, const Receiver&, Args...> {
-        return static_cast<CPO&&>(cpo)(
+        return std::move(cpo)(
             r.get_receiver(),
-            static_cast<Args&&>(args)...);
+            std::move(args)...);
       }
 
       template <typename Func>
@@ -231,12 +231,12 @@ namespace unifex
         completionOp.destruct();
 
         auto& errorStorage = op->error_.template get<Error>();
-        Error errorCopy = static_cast<Error&&>(errorStorage.get());
+        Error errorCopy = std::move(errorStorage.get());
         errorStorage.destruct();
 
         unifex::set_error(
-            static_cast<Receiver&&>(op->receiver_),
-            static_cast<Error&&>(errorCopy));
+            std::move(op->receiver_),
+            std::move(errorCopy));
       }
 
       template <
@@ -259,8 +259,8 @@ namespace unifex
         errorStorage.destruct();
 
         unifex::set_error(
-            static_cast<Receiver&&>(op->receiver_),
-            static_cast<OtherError&&>(otherError));
+            std::move(op->receiver_),
+            std::move(otherError));
       }
 
       void set_done() && noexcept {
@@ -274,7 +274,7 @@ namespace unifex
         auto& errorStorage = op->error_.template get<Error>();
         errorStorage.destruct();
 
-        unifex::set_done(static_cast<Receiver&&>(op->receiver_));
+        unifex::set_done(std::move(op->receiver_));
       }
 
       template <
@@ -294,9 +294,9 @@ namespace unifex
                                           const Receiver&,
                                           Args...>)
           -> callable_result_t<CPO, const Receiver&, Args...> {
-        return static_cast<CPO&&>(cpo)(
+        return std::move(cpo)(
             r.get_receiver(),
-            static_cast<Args&&>(args)...);
+            std::move(args)...);
       }
 
       template <typename Func>
@@ -337,7 +337,7 @@ namespace unifex
       void set_value() && noexcept {
         auto* op = op_;
         op->completionDoneOp_.destruct();
-        unifex::set_done(static_cast<Receiver&&>(op->receiver_));
+        unifex::set_done(std::move(op->receiver_));
       }
 
       template <
@@ -349,14 +349,14 @@ namespace unifex
         auto* op = op_;
         op->completionDoneOp_.destruct();
         unifex::set_error(
-            static_cast<Receiver&&>(op->receiver_),
-            static_cast<Error&&>(error));
+            std::move(op->receiver_),
+            std::move(error));
       }
 
       void set_done() && noexcept {
         auto* op = op_;
         op->completionDoneOp_.destruct();
-        unifex::set_done(static_cast<Receiver&&>(op->receiver_));
+        unifex::set_done(std::move(op->receiver_));
       }
 
       template <
@@ -376,9 +376,9 @@ namespace unifex
                                           const Receiver&,
                                           Args...>)
           -> callable_result_t<CPO, const Receiver&, Args...> {
-        return static_cast<CPO&&>(cpo)(
+        return std::move(cpo)(
             r.get_receiver(),
-            static_cast<Args&&>(args)...);
+            std::move(args)...);
       }
 
       template <typename Func>
@@ -428,7 +428,7 @@ namespace unifex
         auto& valueStorage =
             op->value_.template get<std::tuple<std::decay_t<Values>...>>();
         try {
-          valueStorage.construct(static_cast<Values&&>(values)...);
+          valueStorage.construct(std::move(values)...);
         } catch (...) {
           std::move(*this).set_error(std::current_exception());
           return;
@@ -447,14 +447,14 @@ namespace unifex
                   .template get<operation_t<CompletionSender, value_receiver>>()
                   .construct_from([&] {
                     return unifex::connect(
-                        static_cast<CompletionSender&&>(op->completionSender_),
+                        std::move(op->completionSender_),
                         value_receiver{op});
                   });
           unifex::start(completionOp);
         } catch (...) {
           valueStorage.destruct();
           unifex::set_error(
-              static_cast<Receiver&&>(op->receiver_), std::current_exception());
+              std::move(op->receiver_), std::current_exception());
         }
       }
 
@@ -465,7 +465,7 @@ namespace unifex
 
         auto* op = op_;
         auto& errorStorage = op->error_.template get<std::decay_t<Error>>();
-        errorStorage.construct(static_cast<Error&&>(error));
+        errorStorage.construct(std::move(error));
 
         op->sourceOp_.destruct();
 
@@ -480,14 +480,14 @@ namespace unifex
                   .template get<operation_t<CompletionSender, error_receiver_t>>()
                   .construct_from([&] {
                     return unifex::connect(
-                        static_cast<CompletionSender&&>(op->completionSender_),
+                        std::move(op->completionSender_),
                         error_receiver_t{op});
                   });
           unifex::start(completionOp);
         } catch (...) {
           errorStorage.destruct();
           unifex::set_error(
-              static_cast<Receiver&&>(op->receiver_), std::current_exception());
+              std::move(op->receiver_), std::current_exception());
         }
       }
 
@@ -501,13 +501,13 @@ namespace unifex
               done_receiver<SourceSender, CompletionSender, Receiver>;
           auto& completionOp = op->completionDoneOp_.construct_from([&] {
             return unifex::connect(
-                static_cast<CompletionSender&&>(op->completionSender_),
+                std::move(op->completionSender_),
                 done_receiver{op});
           });
           unifex::start(completionOp);
         } catch (...) {
           unifex::set_error(
-              static_cast<Receiver&&>(op->receiver_), std::current_exception());
+              std::move(op->receiver_), std::current_exception());
         }
       }
 
@@ -524,9 +524,9 @@ namespace unifex
       tag_invoke(CPO cpo, const R& r, Args&&... args) noexcept(
           is_nothrow_callable_v<CPO, const Receiver&, Args...>)
           -> callable_result_t<CPO, const Receiver&, Args...> {
-        return static_cast<CPO&&>(cpo)(
+        return std::move(cpo)(
             r.get_receiver(),
-            static_cast<Args&&>(args)...);
+            std::move(args)...);
       }
 
       template <typename Func>
@@ -595,11 +595,11 @@ namespace unifex
           SourceSender&& sourceSender,
           CompletionSender2&& completionSender,
           Receiver2&& r)
-        : completionSender_(static_cast<CompletionSender2&&>(completionSender))
-        , receiver_(static_cast<Receiver2&&>(r)) {
+        : completionSender_(std::move(completionSender))
+        , receiver_(std::move(r)) {
         sourceOp_.construct_from([&] {
           return unifex::connect(
-              static_cast<SourceSender&&>(sourceSender),
+              std::move(sourceSender),
               receiver<SourceSender, CompletionSender, Receiver>{this});
         });
       }
@@ -697,8 +697,8 @@ namespace unifex
           SourceSender2&& source, CompletionSender2&& completion)
           noexcept(std::is_nothrow_constructible_v<SourceSender, SourceSender2> &&
               std::is_nothrow_constructible_v<CompletionSender, CompletionSender2>)
-        : source_(static_cast<SourceSender2&&>(source))
-        , completion_(static_cast<CompletionSender2&&>(completion)) {}
+        : source_(std::move(source))
+        , completion_(std::move(completion)) {}
 
       // TODO: Also constrain this method to check that the CompletionSender
       // is connectable to any of the instantiations of done/value/error_receiver
@@ -728,9 +728,9 @@ namespace unifex
       friend auto tag_invoke(CPO, S&& s, Receiver&& r)
           -> operation<SourceSender, CompletionSender, Receiver> {
         return operation<SourceSender, CompletionSender, Receiver>{
-                static_cast<SourceSender&&>(s.source_),
-                static_cast<CompletionSender&&>(s.completion_),
-                static_cast<Receiver&&>(r)};
+                std::move(s.source_),
+                std::move(s.completion_),
+                std::move(r)};
       }
 
     private:
@@ -749,8 +749,8 @@ namespace unifex
                   SourceSender,
                   CompletionSender>) -> _final::sender<SourceSender, CompletionSender> {
         return _final::sender<SourceSender, CompletionSender>{
-            static_cast<SourceSender&&>(source),
-            static_cast<CompletionSender&&>(completion)};
+            std::move(source),
+            std::move(completion)};
       }
     } finally{};
   } // namespace _final_cpo

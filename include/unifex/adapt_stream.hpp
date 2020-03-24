@@ -75,7 +75,7 @@ namespace _adapt_stream_cpo {
     template <typename Stream, typename AdapterFunc>
     auto operator()(Stream&& stream, AdapterFunc&& adapt) const
         -> _adapt_stream::adapted<Stream, AdapterFunc> {
-      return {(Stream &&) stream, (AdapterFunc &&) adapt};
+      return {std::move(stream), std::move(adapt)};
     }
 
     template <
@@ -88,9 +88,9 @@ namespace _adapt_stream_cpo {
         CleanupAdapterFunc&& adaptCleanup) const
         -> _adapt_stream::adapted<Stream, NextAdapterFunc, CleanupAdapterFunc> {
       return {
-          (Stream &&) stream,
-          (NextAdapterFunc &&) adaptNext,
-          (CleanupAdapterFunc &&) adaptCleanup};
+          std::move(stream),
+          std::move(adaptNext),
+          std::move(adaptCleanup)};
     }
   } adapt_stream {};
 } // namespace _adapt_stream_cpo

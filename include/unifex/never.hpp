@@ -42,7 +42,7 @@ struct _op<Receiver>::type {
     type& op_;
     void operator()() noexcept {
       op_.stopCallback_.destruct();
-      unifex::set_done(static_cast<Receiver&&>(op_.receiver_));
+      unifex::set_done(std::move(op_.receiver_));
     }
   };
 
@@ -60,7 +60,7 @@ struct _op<Receiver>::type {
     stopCallback_;
 
   template <typename Receiver2>
-  type(Receiver2&& receiver) : receiver_((Receiver2 &&) receiver) {}
+  type(Receiver2&& receiver) : receiver_(std::move(receiver)) {}
 
   void start() noexcept {
     assert(get_stop_token(receiver_).stop_possible());
@@ -80,7 +80,7 @@ struct sender {
 
   template <typename Receiver>
   operation<Receiver> connect(Receiver&& receiver) {
-    return operation<Receiver>{(Receiver &&) receiver};
+    return operation<Receiver>{std::move(receiver)};
   }
 };
 

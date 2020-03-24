@@ -25,11 +25,11 @@ struct scope_guard {
 
   scope_guard(Func&& func) noexcept(
       std::is_nothrow_move_constructible_v<Func>)
-      : func_((Func &&) func) {}
+      : func_(std::move(func)) {}
 
   ~scope_guard() {
-    static_assert(noexcept(((Func &&) func_)()));
-    ((Func &&) func_)();
+    static_assert(noexcept((std::move(func_)())));
+    (std::move(func_))();
   }
 };
 

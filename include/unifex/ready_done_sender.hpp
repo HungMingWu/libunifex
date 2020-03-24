@@ -20,6 +20,7 @@
 #include <unifex/receiver_concepts.hpp>
 
 #include <type_traits>
+#include <utility>
 
 namespace unifex {
 namespace _ready_done {
@@ -35,7 +36,7 @@ namespace _ready_done {
     UNIFEX_NO_UNIQUE_ADDRESS Receiver receiver_;
 
     void start() noexcept {
-      unifex::set_done(static_cast<Receiver&&>(receiver_));
+      unifex::set_done(std::move(receiver_));
     }
   };
 
@@ -56,7 +57,7 @@ namespace _ready_done {
 
     template <typename Receiver>
     operation<Receiver> connect(Receiver&& receiver) {
-      return operation<Receiver>{(Receiver &&) receiver};
+      return operation<Receiver>{std::move(receiver)};
     }
   };
 } // namespace _ready_done

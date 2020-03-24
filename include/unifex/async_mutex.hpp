@@ -72,10 +72,10 @@ private:
 
         template <typename Receiver2>
         explicit type(async_mutex &mutex, Receiver2 &&r) noexcept
-            : mutex_(mutex), receiver_((Receiver2 &&) r) {
+            : mutex_(mutex), receiver_(std::move(r)) {
           this->resume_ = [](waiter_base * self) noexcept {
             type &op = *static_cast<type *>(self);
-            unifex::set_value((Receiver &&) op.receiver_);
+            unifex::set_value(std::move(op.receiver_));
           };
         }
 
@@ -86,7 +86,7 @@ private:
             // Failed to enqueue because we acquired the lock
             // synchronously. Invoke the continuation inline
             // without type-erasure here.
-            set_value((Receiver &&) op.receiver_);
+            set_value(std::move(op.receiver_));
           }
         }
 
@@ -100,7 +100,7 @@ private:
     template <typename Receiver>
     friend operation<Receiver>
     tag_invoke(tag_t<connect>, lock_sender &&s, Receiver &&r) noexcept {
-      return operation<Receiver>{s.mutex_, (Receiver &&) r};
+      return operation<Receiver>{s.mutex_, std::move(r)};
     }
 
     async_mutex &mutex_;

@@ -47,11 +47,11 @@ struct _sender_awaiter<Sender, Value>::type {
     template<typename... Values>
     void set_value(Values&&... values) && noexcept {
       if constexpr (std::is_nothrow_constructible_v<Value, Values...>) {
-        awaiter_.value_.construct((Values&&)values...);
+        awaiter_.value_.construct(std::move(values)...);
         awaiter_.state_ = state::value;
       } else {
         try {
-            awaiter_.value_.construct((Values&&)values...);
+            awaiter_.value_.construct(std::move(values)...);
             awaiter_.state_ = state::value;
         } catch (...) {
             awaiter_.ex_.construct(std::current_exception());
@@ -63,7 +63,7 @@ struct _sender_awaiter<Sender, Value>::type {
 
     template<typename Error>
     void set_error(Error&& error) && noexcept {
-      std::move(*this).set_error(std::make_exception_ptr((Error&&)error));
+      std::move(*this).set_error(std::make_exception_ptr(std::move(error)));
     }
 
     void set_error(std::exception_ptr ex) && noexcept {
@@ -83,14 +83,14 @@ struct _sender_awaiter<Sender, Value>::type {
         const coroutine_receiver& r,
         Func&& func) {
       if (r.awaiter_.info_) {
-        visit_continuations(*r.awaiter_.info_, (Func &&) func);
+        visit_continuations(*r.awaiter_.info_, std::move(func));
       }
     }
   };
 
   explicit type(Sender&& sender)
     : op_(connect(
-        static_cast<Sender&&>(sender),
+        std::move(sender),
         coroutine_receiver{*this}))
   {}
 
@@ -159,7 +159,7 @@ template<
   typename Sender,
   typename Result = single_value_result_t<std::remove_reference_t<Sender>>>
 auto operator co_await(Sender&& sender) {
-  return _coroutine::sender_awaiter<Sender, Result>{(Sender&&)sender};
+  return _coroutine::sender_awaiter<Sender, Result>{std::move(sender});
 }
 
 template<
@@ -169,7 +169,7 @@ template<
         is_empty_list, is_empty_list>::value,
       int> = 0>
 auto operator co_await(Sender&& sender) {
-  return _coroutine::sender_awaiter<Sender, void>{(Sender&&)sender};
+  return _coroutine::sender_awaiter<Sender, void>{std::move(sender)};
 }
 
 }

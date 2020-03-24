@@ -70,16 +70,16 @@ private:
 
       template <typename Receiver2>
       explicit type(Receiver2&& receiver, std::size_t maxDepth)
-        : receiver_((Receiver2 &&) receiver), maxRecursionDepth_(maxDepth) {}
+        : receiver_(std::move(receiver)), maxRecursionDepth_(maxDepth) {}
 
       void execute() noexcept final {
         if (is_stop_never_possible_v<stop_token_type_t<Receiver&>>) {
-          unifex::set_value(static_cast<Receiver&&>(receiver_));
+          unifex::set_value(std::move(receiver_));
         } else {
           if (get_stop_token(receiver_).stop_requested()) {
-            unifex::set_done(static_cast<Receiver&&>(receiver_));
+            unifex::set_done(std::move(receiver_));
           } else {
-            unifex::set_value(static_cast<Receiver&&>(receiver_));
+            unifex::set_value(std::move(receiver_));
           }
         }
       }
@@ -121,7 +121,7 @@ private:
 
     template <typename Receiver>
     operation<Receiver> connect(Receiver&& receiver) && {
-      return operation<Receiver>{(Receiver &&) receiver, maxRecursionDepth_};
+      return operation<Receiver>{std::move(receiver), maxRecursionDepth_};
     }
 
   private:

@@ -55,7 +55,7 @@ struct _successor_receiver<Operation, Values...>::type {
     cleanup();
     try {
       unifex::set_value(
-          std::move(op_.receiver_), (SuccessorValues &&) values...);
+          std::move(op_.receiver_), std::move(values)...);
     } catch (...) {
       unifex::set_error(std::move(op_.receiver_), std::current_exception());
     }
@@ -69,7 +69,7 @@ struct _successor_receiver<Operation, Values...>::type {
   template <typename Error>
   void set_error(Error&& error) && noexcept {
     cleanup();
-    unifex::set_error(std::move(op_.receiver_), (Error &&) error);
+    unifex::set_error(std::move(op_.receiver_), std::move(error));
   }
 
 private:
@@ -126,7 +126,7 @@ struct _predecessor_receiver<Operation>::type {
     try {
       auto& valueTuple =
           op_.values_.template get<decayed_tuple<Values...>>();
-      valueTuple.construct((Values &&) values...);
+      valueTuple.construct(std::move(values)...);
       destroyedPredOp = true;
       op_.predOp_.destruct();
       try {
@@ -158,7 +158,7 @@ struct _predecessor_receiver<Operation>::type {
   template <typename Error>
   void set_error(Error&& error) && noexcept {
     op_.predOp_.destruct();
-    unifex::set_error(std::move(op_.receiver_), (Error &&) error);
+    unifex::set_error(std::move(op_.receiver_), std::move(error));
   }
 
   template <
@@ -211,10 +211,10 @@ struct _op<Predecessor, SuccessorFactory, Receiver>::type {
       Predecessor&& pred,
       SuccessorFactory2&& func,
       Receiver2&& receiver)
-      : func_((SuccessorFactory2 &&) func),
-        receiver_((Receiver2 &&) receiver) {
+      : func_(std::move(func)),
+        receiver_(std::move(receiver)) {
     predOp_.construct_from([&] {
-      return unifex::connect((Predecessor &&) pred, predecessor_receiver<operation>{*this});
+      return unifex::connect(std::move(pred), predecessor_receiver<operation>{*this});
     });
   }
 
@@ -315,27 +315,27 @@ public:
   explicit type(Predecessor2&& pred, SuccessorFactory2&& func)
       noexcept(std::is_nothrow_constructible_v<Predecessor, Predecessor2> &&
           std::is_nothrow_constructible_v<SuccessorFactory, SuccessorFactory2>)
-    : pred_((Predecessor2 &&) pred), func_((SuccessorFactory2 &&) func) {}
+    : pred_(std::move(pred)), func_(std::move(func)) {}
 
   template <typename Receiver>
   auto connect(Receiver&& receiver) &&
       -> operation<Predecessor, SuccessorFactory, Receiver> {
     return operation<Predecessor, SuccessorFactory, Receiver>{
-        std::move(pred_), std::move(func_), (Receiver &&) receiver};
+        std::move(pred_), std::move(func_), std::move(receiver)};
   }
 
   template <typename Receiver>
   auto connect(Receiver&& receiver) &
       -> operation<Predecessor&, SuccessorFactory, Receiver> {
     return operation<Predecessor&, SuccessorFactory, Receiver>{
-        pred_, func_, (Receiver &&) receiver};
+        pred_, func_, std::move(receiver)};
   }
 
   template <typename Receiver>
   auto connect(Receiver&& receiver) const &
       -> operation<const Predecessor&, SuccessorFactory, Receiver> {
     return operation<const Predecessor&, SuccessorFactory, Receiver>{
-      pred_, func_, (Receiver &&) receiver};
+      pred_, func_, std::move(receiver)};
   }
 };
 } // namespace _let
@@ -348,8 +348,8 @@ namespace _let_cpo {
             _let::sender<Predecessor, SuccessorFactory>, Predecessor, SuccessorFactory>)
         -> _let::sender<Predecessor, SuccessorFactory> {
       return _let::sender<Predecessor, SuccessorFactory>{
-          (Predecessor &&) pred,
-          (SuccessorFactory &&) func};
+          std::move(pred),
+          std::move(func)};
     }
   } let {};
 } // namespace _let_cpo

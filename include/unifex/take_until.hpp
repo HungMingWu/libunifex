@@ -109,7 +109,7 @@ struct _stream<SourceStream, TriggerStream>::type {
           template<typename... Values>
           void set_value(Values&&... values) && noexcept {
             op_.stopCallback_.destruct();
-            unifex::set_value(std::move(op_.receiver_), (Values&&)values...);
+            unifex::set_value(std::move(op_.receiver_), std::move(values)...);
           }
 
           void set_done() && noexcept {
@@ -122,7 +122,7 @@ struct _stream<SourceStream, TriggerStream>::type {
           void set_error(Error&& error) && noexcept {
             op_.stopCallback_.destruct();
             op_.stream_.stopSource_.request_stop();
-            unifex::set_error(std::move(op_.receiver_), (Error&&)error);
+            unifex::set_error(std::move(op_.receiver_), std::move(error));
           }
 
           inplace_stop_source& get_stop_source() const {
@@ -153,7 +153,7 @@ struct _stream<SourceStream, TriggerStream>::type {
         template<typename Receiver2>
         explicit type(take_until_stream& stream, Receiver2&& receiver)
           : stream_(stream)
-          , receiver_((Receiver2&&)receiver)
+          , receiver_(std::move(receiver))
           , innerOp_(unifex::connect(
                 next(stream.source_),
                 receiver_wrapper{*this}))
@@ -188,7 +188,7 @@ struct _stream<SourceStream, TriggerStream>::type {
     operation<Receiver> connect(Receiver&& receiver) && {
       return operation<Receiver>{
         stream_,
-        (Receiver&&)receiver};
+        std::move(receiver)};
     }
   };
 
@@ -219,7 +219,7 @@ struct _stream<SourceStream, TriggerStream>::type {
 
           template<typename Error>
           void set_error(Error&& error) && noexcept {
-            std::move(*this).set_error(std::make_exception_ptr((Error&&)error));
+            std::move(*this).set_error(std::make_exception_ptr(std::move(error)));
           }
 
           void set_error(std::exception_ptr error) && noexcept {
@@ -248,7 +248,7 @@ struct _stream<SourceStream, TriggerStream>::type {
 
           template<typename Error>
           void set_error(Error&& error) && noexcept {
-            std::move(*this).set_error(std::make_exception_ptr((Error&&)error));
+            std::move(*this).set_error(std::make_exception_ptr(std::move(error)));
           }
 
           void set_error(std::exception_ptr error) && noexcept {
@@ -280,7 +280,7 @@ struct _stream<SourceStream, TriggerStream>::type {
         template<typename Receiver2>
         explicit type(take_until_stream& stream, Receiver2&& receiver)
           : stream_(stream)
-          , receiver_((Receiver2&&)receiver)
+          , receiver_(std::move(receiver))
         {}
 
         void start() noexcept {
@@ -401,7 +401,7 @@ struct _stream<SourceStream, TriggerStream>::type {
 
     template<typename Receiver>
     operation<Receiver> connect(Receiver&& receiver) {
-      return operation<Receiver>{stream_, (Receiver &&) receiver};
+      return operation<Receiver>{stream_, std::move(receiver)};
     }
   };
 
@@ -438,8 +438,8 @@ public:
 
   template<typename SourceStream2, typename TriggerStream2>
   explicit type(SourceStream2&& source, TriggerStream2&& trigger)
-  : source_((SourceStream2&&)source)
-  , trigger_((TriggerStream2&&)trigger)
+  : source_(std::move(source))
+  , trigger_(std::move(trigger))
   {}
 
   type(type&& other)
@@ -462,8 +462,8 @@ namespace _take_until_cpo {
     template<typename SourceStream, typename TriggerStream>
     auto operator()(SourceStream&& source, TriggerStream&& trigger) const {
       return _take_until::stream<SourceStream, TriggerStream>{
-        (SourceStream&&)source,
-        (TriggerStream&&)trigger};
+        std::move(source),
+        std::move(trigger)};
     }
   } take_until {};
 } // namespace _take_until_cpo

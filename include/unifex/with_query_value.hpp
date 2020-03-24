@@ -35,7 +35,7 @@ class _receiver_wrapper<CPO, Value, Receiver>::type {
  public:
   template <typename Receiver2>
   explicit type(Receiver2 &&receiver, const Value& val)
-    : receiver_((Receiver2 &&) receiver)
+    : receiver_(std::move(receiver))
     , val_(&val) {}
 
  private:
@@ -47,21 +47,21 @@ class _receiver_wrapper<CPO, Value, Receiver>::type {
   friend auto tag_invoke(OtherCPO cpo, const type &r, Args &&... args)
       noexcept(is_nothrow_callable_v<OtherCPO, const Receiver &, Args...>)
       -> callable_result_t<OtherCPO, const Receiver &, Args...> {
-    return ((OtherCPO &&) cpo)(std::as_const(r.receiver_), (Args &&) args...);
+    return std::move(cpo)(std::as_const(r.receiver_), std::move(args)...);
   }
 
   template <typename OtherCPO, typename... Args>
   friend auto tag_invoke(OtherCPO cpo, type &r, Args &&... args)
       noexcept(is_nothrow_callable_v<OtherCPO, Receiver &, Args...>)
       -> callable_result_t<OtherCPO, Receiver &, Args...> {
-    return ((OtherCPO &&) cpo)(r.receiver_, (Args &&) args...);
+    return std::move(cpo)(r.receiver_, std::move(args)...);
   }
 
   template <typename OtherCPO, typename... Args>
   friend auto tag_invoke(OtherCPO cpo, type &&r, Args &&... args)
       noexcept(is_nothrow_callable_v<OtherCPO, Receiver, Args...>)
       -> callable_result_t<OtherCPO, Receiver, Args...> {
-    return ((OtherCPO &&) cpo)((Receiver &&) r.receiver_, (Args &&) args...);
+    return std::move(cpo)(std::move(r.receiver_), std::move(args)...);
   }
 
   Receiver receiver_;
@@ -80,11 +80,11 @@ class _op<CPO, Value, Sender, Receiver>::type {
  public:
   template <typename Receiver2, typename Value2>
   explicit type(Sender &&sender, Receiver2 &&receiver, Value2 &&value)
-    : value_((Value2 &&) value)
+    : value_(std::move(value))
     , innerOp_(
-          connect((Sender &&) sender,
+          connect(std::move(sender),
                   receiver_wrapper<CPO, Value, Receiver>{
-                      (Receiver2 &&) receiver, value_})) {}
+                      std::move(receiver), value_})) {}
 
   void start() & noexcept {
     unifex::start(innerOp_);
@@ -116,24 +116,24 @@ public:
 
   template <typename Sender2, typename Value2>
   explicit type(Sender2 &&sender, Value2 &&value)
-    : sender_((Sender2 &&) sender), value_((Value &&) value) {}
+    : sender_(std::move(sender)), value_(std::move(value)) {}
 
   template <typename Receiver>
   operation<CPO, Value, Sender, Receiver> connect(Receiver &&receiver) && {
     return operation<CPO, Value, Sender, Receiver>{
-        (Sender &&) sender_, (Receiver &&) receiver, (Value &&) value_};
+        std::move(sender_), std::move(receiver), std::move(value_)};
   }
 
   template <typename Receiver>
   operation<CPO, Value, Sender &, Receiver> connect(Receiver &&receiver) & {
     return operation<CPO, Value, Sender &, Receiver>{
-        sender_, (Receiver &&) receiver, value_};
+        sender_, std::move(receiver), value_};
   }
 
   template <typename Receiver>
   operation<CPO, Value, const Sender &, Receiver> connect(Receiver &&receiver) const & {
     return operation<CPO, Value, const Sender &, Receiver>{
-        sender_, (Receiver &&) receiver, value_};
+        sender_, std::move(receiver), value_};
   }
 
 private:
@@ -151,8 +151,8 @@ namespace _with_query_value_cpo {
           std::is_empty_v<CPO>,
           "with_query_value() does not support stateful CPOs");
       return _with_query_value::sender<CPO, Value, Sender>{
-          (Sender &&) sender,
-          (Value &&) value};
+          std::move(sender),
+          std::move(value)};
     }
   } with_query_value {};
 } // namespace _with_query_value_cpo

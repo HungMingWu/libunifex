@@ -84,7 +84,7 @@ namespace _timed_single_thread_context {
         Receiver2&& receiver)
         : task_base(context),
           duration_(duration),
-          receiver_((Receiver2 &&) receiver) {
+          receiver_(std::move(receiver)) {
       assert(context_ != nullptr);
     }
 
@@ -92,12 +92,12 @@ namespace _timed_single_thread_context {
       cancelCallback_.destruct();
       if constexpr (is_stop_never_possible_v<
                         stop_token_type_t<Receiver&>>) {
-        unifex::set_value(static_cast<Receiver&&>(receiver_));
+        unifex::set_value(std::move(receiver_));
       } else {
         if (get_stop_token(receiver_).stop_requested()) {
-          unifex::set_done(static_cast<Receiver&&>(receiver_));
+          unifex::set_done(std::move(receiver_));
         } else {
-          unifex::set_value(static_cast<Receiver&&>(receiver_));
+          unifex::set_value(std::move(receiver_));
         }
       }
     }
@@ -155,7 +155,7 @@ namespace _timed_single_thread_context {
         clock_t::time_point dueTime,
         Receiver2&& receiver)
         : task_base(scheduler)
-        , receiver_((Receiver2 &&) receiver) {
+        , receiver_(std::move(receiver)) {
       this->dueTime_ = dueTime;
     }
 
@@ -163,12 +163,12 @@ namespace _timed_single_thread_context {
       cancelCallback_.destruct();
       if constexpr (is_stop_never_possible_v<
                         stop_token_type_t<Receiver&>>) {
-        unifex::set_value(static_cast<Receiver&&>(receiver_));
+        unifex::set_value(std::move(receiver_));
       } else {
         if (get_stop_token(receiver_).stop_requested()) {
-          unifex::set_done(static_cast<Receiver&&>(receiver_));
+          unifex::set_done(std::move>(receiver_));
         } else {
-          unifex::set_value(static_cast<Receiver&&>(receiver_));
+          unifex::set_value(std::move(receiver_));
         }
       }
     }

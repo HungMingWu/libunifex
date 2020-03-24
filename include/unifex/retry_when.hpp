@@ -89,7 +89,7 @@ public:
         op->isSourceOpConstructed_ = true;
         unifex::start(sourceOp);
       } catch (...) {
-        unifex::set_error((Receiver&&)op->receiver_, std::current_exception());
+        unifex::set_error(std::move(op->receiver_), std::current_exception());
       }
     }
   }
@@ -102,7 +102,7 @@ public:
 
     auto* op = op_;
     destroy_trigger_op();
-    unifex::set_done((Receiver&&)op->receiver_);
+    unifex::set_done(std::move(op->receiver_));
   }
 
   template<
@@ -117,7 +117,7 @@ public:
     // to be valid after we destroy the operation-state that sent it.
     destroy_trigger_op();
 
-    unifex::set_error((Receiver&&)op->receiver_, (Error&&)error);
+    unifex::set_error(std::move(op->receiver_), std::move(error));
   }
 
 private:
@@ -126,7 +126,7 @@ private:
   friend auto tag_invoke(CPO cpo, const trigger_receiver& r, Args&&... args)
       noexcept(is_nothrow_callable_v<CPO, const Receiver&, Args...>)
       -> callable_result_t<CPO, const Receiver&, Args...> {
-    return std::move(cpo)(r.get_receiver(), (Args&&)args...);
+    return std::move(cpo)(r.get_receiver(), std::move(args)...);
   }
 
   template <typename VisitFunc>
@@ -169,7 +169,7 @@ public:
   void set_value(Values&&... values)
       noexcept(is_nothrow_callable_v<decltype(unifex::set_value), Receiver, Values...>) {
     assert(op_ != nullptr);
-    unifex::set_value(std::move(op_->receiver_), (Values&&)values...);
+    unifex::set_value(std::move(op_->receiver_), std::move(values)...);
   }
 
   template<
@@ -197,17 +197,17 @@ public:
     if constexpr (std::is_nothrow_invocable_v<Func&, Error> &&
                   is_nothrow_connectable_v<trigger_sender_t, trigger_receiver_t>) {
       auto& triggerOp = triggerOpStorage.construct_from([&]() noexcept {
-          return unifex::connect(std::invoke(op->func_, (Error&&)error), trigger_receiver_t{op});
+          return unifex::connect(std::invoke(op->func_, std::move(error)), trigger_receiver_t{op});
         });
       unifex::start(triggerOp);
     } else {
       try {
         auto& triggerOp = triggerOpStorage.construct_from([&]() {
-            return unifex::connect(std::invoke(op->func_, (Error&&)error), trigger_receiver_t{op});
+            return unifex::connect(std::invoke(op->func_, std::move(error)), trigger_receiver_t{op});
           });
         unifex::start(triggerOp);
       } catch (...) {
-        unifex::set_error((Receiver&&)op->receiver_, std::current_exception());
+        unifex::set_error(std::move(op->receiver_), std::current_exception());
       }
     }
   }
@@ -217,7 +217,7 @@ private:
   friend auto tag_invoke(CPO cpo, const source_receiver& r, Args&&... args)
       noexcept(is_nothrow_callable_v<CPO, const Receiver&, Args...>)
       -> callable_result_t<CPO, const Receiver&, Args...> {
-    return std::move(cpo)(r.get_receiver(), (Args&&)args...);
+    return std::move(cpo)(r.get_receiver(), std::move(args)...);
   }
 
   template <typename VisitFunc>
@@ -249,9 +249,9 @@ public:
                std::is_nothrow_constructible_v<Func, Func2> &&
                std::is_nothrow_constructible_v<Receiver, Receiver2> &&
                is_nothrow_connectable_v<Source&, source_receiver_t>)
-  : source_((Source2&&)source)
-  , func_((Func2&&)func)
-  , receiver_((Receiver&&)receiver) {
+  : source_(std::move(source))
+  , func_(std::move(func))
+  , receiver_(std::move(receiver)) {
     sourceOp_.construct_from([&] {
         return unifex::connect(source_, source_receiver_t{this});
       });
@@ -330,8 +330,8 @@ public:
   explicit type(Source2&& source, Func2&& func)
     noexcept(std::is_nothrow_constructible_v<Source, Source2> &&
              std::is_nothrow_constructible_v<Func, Func2>)
-    : source_((Source2&&)source)
-    , func_((Func2&&)func)
+    : source_(std::move(source))
+    , func_(std::move(func))
   {}
 
   // TODO: The connect() methods are currently under-constrained.
@@ -349,7 +349,7 @@ public:
       noexcept(std::is_nothrow_constructible_v<
           operation<Source, Func, Receiver>, Source, Func, Receiver>) {
     return operation<Source, Func, Receiver>{
-        (Source&&)source_, (Func&&)func_, (Receiver&&)r};
+	 std::move(source_), std::move(func_), std::move(r)};
   }
 
   template<
@@ -376,7 +376,7 @@ public:
   operation<Source, Func, Receiver> connect(Receiver&& r) &
       noexcept(std::is_nothrow_constructible_v<
           operation<Source, Func, Receiver>, const Source&, const Func&, Receiver>) {
-    return operation<Source, Func, Receiver>{source_, func_, (Receiver&&)r};
+    return operation<Source, Func, Receiver>{source_, func_, std::move(r)};
   }
 
 private:
@@ -393,7 +393,7 @@ namespace _retry_when_cpo {
       template <typename Source, typename Func>
       auto operator()(Source&& source, Func&& func) const
           noexcept(is_nothrow_tag_invocable_v<_fn, Source, Func>) {
-        return unifex::tag_invoke(_fn{}, (Source&&)source, (Func&&)func);
+        return unifex::tag_invoke(_fn{}, std::move(source), std::move(func));
       }
     };
   public:
@@ -404,7 +404,7 @@ namespace _retry_when_cpo {
         -> callable_result_t<
             _impl<is_tag_invocable_v<_fn, Source, Func>>, Source, Func> {
         return _impl<is_tag_invocable_v<_fn, Source, Func>>{}(
-          (Source&&)source, (Func&&)func);
+          std::move(source), std::move(func));
       }
   } retry_when{};
 
@@ -421,7 +421,7 @@ namespace _retry_when_cpo {
         noexcept(std::is_nothrow_constructible_v<
           _retry_when::sender<Source, Func>, Source, Func>)
         -> _retry_when::sender<Source, Func> {
-      return _retry_when::sender<Source, Func>{(Source&&)source, (Func&&)func};
+      return _retry_when::sender<Source, Func>{std::move(source), std::move(func)};
     }
   };
 } // namespace _retry_when_cpo

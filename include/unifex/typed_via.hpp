@@ -35,8 +35,8 @@ namespace _typed_via {
             -> tag_invoke_result_t<_fn, Source, Scheduler> {
       return tag_invoke(
           *this,
-          static_cast<Source&&>(source),
-          static_cast<Scheduler&&>(scheduler));
+          std::move(source),
+          std::move(scheduler));
     }
 
     template <
@@ -47,14 +47,14 @@ namespace _typed_via {
             int> = 0>
     auto operator()(Source&& source, Scheduler&& scheduler) const
         noexcept(noexcept(finally(
-            static_cast<Source&&>(source),
-            schedule(static_cast<Scheduler&&>(scheduler)))))
+            std::move(source),
+            schedule(std::move(scheduler)))))
             -> decltype(finally(
-                static_cast<Source&&>(source),
-                schedule(static_cast<Scheduler&&>(scheduler)))) {
+                std::move(source),
+                schedule(std::move(scheduler)))) {
       return finally(
-          static_cast<Source&&>(source),
-          schedule(static_cast<Scheduler&&>(scheduler)));
+          std::move(source),
+          schedule(std::move(scheduler)));
     }
   };
 } // namespace _typed_via

@@ -45,14 +45,14 @@ class _op<Sender, Receiver>::type {
     template <typename... Values>
     void set_value(Values&&... values) && noexcept {
       auto allocator = get_allocator(op_->receiver_);
-      unifex::set_value(std::move(op_->receiver_), (Values &&) values...);
+      unifex::set_value(std::move(op_->receiver_), std::move(values)...);
       destroy(std::move(allocator));
     }
 
     template <typename Error>
     void set_error(Error&& error) && noexcept {
       auto allocator = get_allocator(op_->receiver_);
-      unifex::set_error(std::move(op_->receiver_), (Error &&) error);
+      unifex::set_error(std::move(op_->receiver_), std::move(error));
       destroy(std::move(allocator));
     }
 
@@ -97,8 +97,8 @@ class _op<Sender, Receiver>::type {
 public:
   template <typename Receiver2>
   explicit type(Sender&& sender, Receiver2&& receiver)
-    : receiver_((Receiver2 &&) receiver)
-    , inner_(unifex::connect((Sender &&) sender, wrapped_receiver{this}))
+    : receiver_(std::move(receiver))
+    , inner_(unifex::connect(std::move(sender), wrapped_receiver{this}))
   {}
 
   void start() & noexcept {
@@ -119,7 +119,7 @@ namespace _submit_cpo {
         static_assert(
           std::is_same_v<tag_invoke_result_t<submit_cpo, Sender, Receiver>>,
           "Customisations of submit() must have a void return value");
-        unifex::tag_invoke(*this, (Sender&&)sender, (Receiver&&)receiver);
+        unifex::tag_invoke(*this, std::move(sender), std::move(receiver));
       } else {
         // Default implementation in terms of connect/start
         switch (blocking(sender)) {
@@ -128,7 +128,7 @@ namespace _submit_cpo {
           {
             // The sender will complete synchronously so we can avoid allocating the
             // state on the heap.
-            auto op = unifex::connect((Sender &&) sender, (Receiver &&) receiver);
+            auto op = unifex::connect(std::move(sender), std::move(receiver));
             unifex::start(op);
             break;
           }
@@ -153,7 +153,7 @@ namespace _submit_cpo {
                   typed_allocator_traits::deallocate(typedAllocator, op, 1);
                 }
               };
-              typed_allocator_traits::construct(typedAllocator, op, (Sender&&)sender, (Receiver&&)receiver);
+              typed_allocator_traits::construct(typedAllocator, op, std::move(sender), std::move(receiver));
               constructorSucceeded = true;
             }
             op->start();

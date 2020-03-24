@@ -72,25 +72,25 @@ struct _receiver<Policy, Range, Func, Receiver>::type {
   template <typename... Values>
   void set_value(Values&&... values) && noexcept {
     if constexpr (std::is_nothrow_invocable_v<Func&, typename std::iterator_traits<typename Range::iterator>::reference, Values...>) {
-      apply_func_with_policy(policy_, (Range&&) range_, (Func &&) func_, values...);
-      unifex::set_value((Receiver &&) receiver_, (Values &&) values...);
+      apply_func_with_policy(policy_, std::move(range_), std::move(func_), values...);
+      unifex::set_value(std::move(receiver_), std::move(values)...);
     } else {
       try {
-        apply_func_with_policy(policy_, (Range&&) range_, (Func &&) func_, values...);
-        unifex::set_value((Receiver &&) receiver_, (Values &&) values...);
+        apply_func_with_policy(policy_, std::move(range_), std::move(func_), values...);
+        unifex::set_value(std::move(receiver_), std::move(values)...);
       } catch (...) {
-        unifex::set_error((Receiver &&) receiver_, std::current_exception());
+        unifex::set_error(std::move(receiver_), std::current_exception());
       }
     }
   }
 
   template <typename Error>
   void set_error(Error&& error) && noexcept {
-    unifex::set_error((Receiver &&) receiver_, (Error &&) error);
+    unifex::set_error(std::move(receiver_), std::move(error));
   }
 
   void set_done() && noexcept {
-    unifex::set_done((Receiver &&) receiver_);
+    unifex::set_done(std::move(receiver_));
   }
 
   template <
@@ -151,10 +151,10 @@ struct _sender<Predecessor, Policy, Range, Func>::type {
     return unifex::connect(
         std::forward<Predecessor>(pred_),
         _ifor::receiver<Policy, Range, Func, Receiver>{
-            (Func &&) func_,
-            (Policy &&) policy_,
-            (Range &&) range_,
-            (Receiver &&) receiver});
+            std::move(func_),
+            std::move(policy_),
+            std::move(range_),
+            std::move(receiver)});
   }
 };
 } // namespace _ifor
@@ -165,7 +165,7 @@ namespace _ifor_cpo {
     auto operator()(Sender&& predecessor, Policy&& policy, Range&& range, Func&& func) const
         -> _ifor::sender<Sender, Policy, Range, Func> {
       return _ifor::sender<Sender, Policy, Range, Func>{
-          (Sender &&) predecessor, (Policy &&) policy, (Range &&) range, (Func &&) func};
+          std::move(predecessor), std::move(policy), std::move(range), std::move(func)};
     }
   } indexed_for{};
 } // namespace _ifor_cpo

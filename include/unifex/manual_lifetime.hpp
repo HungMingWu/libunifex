@@ -34,16 +34,16 @@ class manual_lifetime {
   T& construct(Args&&... args) noexcept(
       std::is_nothrow_constructible_v<T, Args...>) {
     return *::new (static_cast<void*>(std::addressof(value_)))
-        T((Args &&) args...);
+        T(std::move(args)...);
   }
 
   template <typename Func>
-  T& construct_from(Func&& func) noexcept(noexcept(T(((Func &&) func)()))) {
+  T& construct_from(Func&& func) noexcept(noexcept(T(std::move(func)()))) {
     static_assert(
         std::is_same_v<callable_result_t<Func>, T>,
         "Return type of func() must be exactly T to permit copy-elision.");
     return *::new (static_cast<void*>(std::addressof(value_)))
-        T(((Func &&) func)());
+        T((std::move(func))());
   }
 
   void destruct() noexcept(std::is_nothrow_destructible_v<T>) {
@@ -81,9 +81,9 @@ class manual_lifetime<T&> {
   }
 
   template <typename Func>
-  T& construct_from(Func&& func) noexcept(noexcept(((Func &&) func)())) {
+  T& construct_from(Func&& func) noexcept(noexcept(std::move(func)())) {
     static_assert(std::is_same_v<callable_result_t<Func>, T&>);
-    value_ = std::addressof(((Func &&) func)());
+    value_ = std::addressof(std::move(func)());
     return value_;
   }
 
@@ -105,20 +105,20 @@ class manual_lifetime<T&&> {
 
   T&& construct(T&& value) noexcept {
     value_ = std::addressof(value);
-    return (T &&) value;
+    return std::move(value);
   }
 
   template <typename Func>
-  T&& construct_from(Func&& func) noexcept(noexcept(((Func &&) func)())) {
+  T&& construct_from(Func&& func) noexcept(noexcept(std::move(func)())) {
     static_assert(std::is_same_v<callable_result_t<Func>, T&&>);
-    value_ = std::addressof(((Func &&) func)());
-    return (T &&) value_;
+    value_ = std::addressof(std::move(func)());
+    return std::move(value_);
   }
 
   void destruct() noexcept {}
 
   T&& get() const noexcept {
-    return (T &&) * value_;
+    return std::move(* value_);
   }
 
  private:
@@ -133,9 +133,9 @@ class manual_lifetime<void> {
 
   void construct() noexcept {}
   template <typename Func>
-  void construct_from(Func&& func) noexcept(noexcept(((Func &&) func)())) {
+  void construct_from(Func&& func) noexcept(noexcept(std::move(func)())) {
     static_assert(std::is_void_v<callable_result_t<Func>>);
-    ((Func &&) func)();
+    std::move(func)();
   }
   void destruct() noexcept {}
   void get() const noexcept {}

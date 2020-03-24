@@ -201,7 +201,7 @@ class io_epoll_context::schedule_sender {
         context_.schedule_impl(this);
       } catch (...) {
         unifex::set_error(
-            static_cast<Receiver&&>(receiver_), std::current_exception());
+            std::move(receiver_), std::current_exception());
       }
     }
 
@@ -210,7 +210,7 @@ class io_epoll_context::schedule_sender {
 
     template <typename Receiver2>
     explicit operation(io_epoll_context& context, Receiver2&& r)
-        : context_(context), receiver_((Receiver2 &&) r) {
+        : context_(context), receiver_(std::move(r)) {
       this->execute_ = &execute_impl;
     }
 
@@ -218,18 +218,18 @@ class io_epoll_context::schedule_sender {
       operation& op = *static_cast<operation*>(p);
       if constexpr (!is_stop_never_possible_v<stop_token_type_t<Receiver>>) {
         if (get_stop_token(op.receiver_).stop_requested()) {
-          unifex::set_done(static_cast<Receiver&&>(op.receiver_));
+          unifex::set_done(std::move(op.receiver_));
           return;
         }
       }
       if constexpr (is_nothrow_callable_v<unifex::tag_t<unifex::set_value>&, Receiver>) {
-        unifex::set_value(static_cast<Receiver&&>(op.receiver_));
+        unifex::set_value(std::move(op.receiver_));
       } else {
         try {
-          unifex::set_value(static_cast<Receiver&&>(op.receiver_));
+          unifex::set_value(std::move(op.receiver_));
         } catch (...) {
           unifex::set_error(
-              static_cast<Receiver&&>(op.receiver_), std::current_exception());
+              std::move(op.receiver_), std::current_exception());
         }
       }
     }
@@ -250,7 +250,7 @@ class io_epoll_context::schedule_sender {
   template <typename Receiver>
   operation<std::remove_reference_t<Receiver>> connect(Receiver&& r) {
     return operation<std::remove_reference_t<Receiver>>{context_,
-                                                        (Receiver &&) r};
+                                                        std::move(r)};
   }
 
  private:
@@ -277,7 +277,7 @@ class io_epoll_context::schedule_at_sender {
               context,
               dueTime,
               get_stop_token(r).stop_possible()),
-          receiver_((Receiver &&) r) {}
+          receiver_(std::move(r)) {}
 
     void start() noexcept {
       if (this->context_.is_running_on_io_thread()) {
@@ -435,7 +435,7 @@ class io_epoll_context::schedule_at_sender {
   template <typename Receiver>
   operation<std::remove_cvref_t<Receiver>> connect(Receiver&& r) {
     return operation<std::remove_cvref_t<Receiver>>{
-        context_, dueTime_, (Receiver &&) r};
+        context_, dueTime_, std::move(r)};
   }
 
  private:

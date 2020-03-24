@@ -51,7 +51,7 @@ struct _stream<Values...>::type {
         tag_t<visit_continuations>,
         const next_receiver_base& receiver,
         Func&& func) {
-      visit_continuations(receiver.get_continuation_info(), (Func &&) func);
+      visit_continuations(receiver.get_continuation_info(), std::move(func));
     }
 
     virtual continuation_info get_continuation_info() const = 0;
@@ -67,7 +67,7 @@ struct _stream<Values...>::type {
         tag_t<visit_continuations>,
         const cleanup_receiver_base& receiver,
         Func&& func) {
-      visit_continuations(receiver.get_continuation_info(), (Func &&) func);
+      visit_continuations(receiver.get_continuation_info(), std::move(func));
     }
 
     virtual continuation_info get_continuation_info() const noexcept = 0;
@@ -87,10 +87,10 @@ struct _stream<Values...>::type {
       UNIFEX_NO_UNIQUE_ADDRESS Receiver receiver_;
 
       explicit type(Receiver&& receiver)
-        : receiver_((Receiver &&) receiver) {}
+        : receiver_(std::move(receiver)) {}
 
       void set_value(Values&&... values) noexcept override {
-        unifex::set_value(std::move(receiver_), (Values &&) values...);
+        unifex::set_value(std::move(receiver_), std::move(values)...);
       }
 
       void set_done() noexcept override {
@@ -116,7 +116,7 @@ struct _stream<Values...>::type {
       UNIFEX_NO_UNIQUE_ADDRESS Receiver receiver_;
 
       explicit type(Receiver&& receiver)
-        : receiver_((Receiver &&) receiver) {}
+        : receiver_(std::move(receiver)) {}
 
       void set_done() noexcept override {
         unifex::set_done(std::move(receiver_));
@@ -157,8 +157,8 @@ struct _stream<Values...>::type {
             // the operation object.
             [&](Values... values) {
               stream_.next_.destruct();
-              receiver_.set_value((Values &&) values...);
-            }((Values &&) values...);
+              receiver_.set_value(std::move(values)...);
+            }(std::move(values)...);
           } catch (...) {
             stream_.next_.destruct();
             receiver_.set_error(std::current_exception());
@@ -178,7 +178,7 @@ struct _stream<Values...>::type {
         template <typename Error>
         void set_error(Error&& error) && noexcept {
           // Type-erase any errors that come through.
-          std::move(*this).set_error(std::make_exception_ptr((Error&&)error));
+          std::move(*this).set_error(std::make_exception_ptr(std::move(error)));
         }
 
         friend const inplace_stop_token& tag_invoke(
@@ -191,7 +191,7 @@ struct _stream<Values...>::type {
             tag_t<visit_continuations>,
             const next_receiver_wrapper& receiver,
             Func&& func) {
-          visit_continuations(receiver.receiver_, (Func &&) func);
+          visit_continuations(receiver.receiver_, std::move(func));
         }
       };
 
@@ -220,12 +220,12 @@ struct _stream<Values...>::type {
             tag_t<visit_continuations>,
             const cleanup_receiver_wrapper& receiver,
             Func&& func) {
-          visit_continuations(receiver.receiver_, (Func &&) func);
+          visit_continuations(receiver.receiver_, std::move(func));
         }
       };
 
       template <typename Stream2>
-      explicit type(Stream2&& strm) : stream_((Stream2 &&) strm) {}
+      explicit type(Stream2&& strm) : stream_(std::move(strm)) {}
 
       ~type() {}
 
@@ -302,7 +302,7 @@ struct _stream<Values...>::type {
         explicit type(stream_base& strm, Receiver2&& receiver)
           : stream_(strm),
             stopSource_(),
-            receiver_((Receiver2 &&) receiver),
+            receiver_(std::move(receiver)),
             stopCallback_(
               get_stop_token(receiver_.receiver_),
               cancel_callback{stopSource_})
@@ -321,7 +321,7 @@ struct _stream<Values...>::type {
 
     template <typename Receiver>
     operation<Receiver> connect(Receiver&& receiver) {
-      return operation<Receiver>{stream_, (Receiver &&) receiver};
+      return operation<Receiver>{stream_, std::move(receiver)};
     }
   };
 
@@ -343,7 +343,7 @@ struct _stream<Values...>::type {
 
         explicit type(stream_base& stream, Receiver&& receiver)
           : stream_(stream)
-          , receiver_((Receiver &&) receiver) {}
+          , receiver_(std::move(receiver)) {}
 
         void start() noexcept {
           stream_.start_cleanup(receiver_);
@@ -355,7 +355,7 @@ struct _stream<Values...>::type {
 
     template <typename Receiver>
     operation<Receiver> connect(Receiver&& receiver) {
-      return operation<Receiver>{stream_, (Receiver &&) receiver};
+      return operation<Receiver>{stream_, std::move(receiver)};
     }
   };
 
@@ -365,7 +365,7 @@ struct _stream<Values...>::type {
   explicit type(ConcreteStream&& strm)
     : stream_(
         std::make_unique<type::stream<ConcreteStream>>(
-            (ConcreteStream &&) strm)) {}
+            std::move(strm))) {}
 
   friend next_sender tag_invoke(tag_t<next>, type& s) noexcept {
     return next_sender{*s.stream_};
@@ -382,7 +382,7 @@ namespace _type_erase_cpo {
   struct _fn {
     template <typename Stream>
     _type_erase::stream<Ts...> operator()(Stream&& strm) const {
-      return _type_erase::stream<Ts...>{(Stream &&) strm};
+      return _type_erase::stream<Ts...>{std::move(strm)};
     }
   };
 } // namespace _type_erase_cpo

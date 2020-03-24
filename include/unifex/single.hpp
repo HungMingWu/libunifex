@@ -44,7 +44,7 @@ struct _next_op<Sender, Receiver>::type {
 
   template <typename Receiver2>
   explicit type(Receiver2&& receiver)
-    : receiver_((Receiver2&&)receiver)
+    : receiver_(std::move(receiver))
     , done_(true)
   {}
 
@@ -53,7 +53,7 @@ struct _next_op<Sender, Receiver>::type {
   {
     innerOp_.construct_from([&] {
       return unifex::connect(
-          static_cast<Sender&&>(sender), (Receiver&&)receiver);
+          std::move(sender), std::move(receiver));
     });
   }
 
@@ -98,9 +98,9 @@ struct _stream<Sender>::type {
     template <typename Receiver>
     auto connect(Receiver&& receiver) {
       if (sender_) {
-        return next_operation<Sender, Receiver>{*std::move(sender_), (Receiver&&)receiver};
+        return next_operation<Sender, Receiver>{*std::move(sender_), std::move(receiver)};
       } else {
-        return next_operation<Sender, Receiver>{(Receiver&&)receiver};
+        return next_operation<Sender, Receiver>{std::move(receiver)};
       }
     }
   };
@@ -116,7 +116,7 @@ struct _stream<Sender>::type {
 
   template <typename Sender2>
   explicit type(Sender2&& sender)
-    : sender_(std::in_place, (Sender2&&)sender) {}
+    : sender_(std::in_place, std::move(sender)) {}
 };
 } // namespace _single
 
@@ -124,7 +124,7 @@ namespace _single_cpo {
   inline constexpr struct _fn {
     template <typename Sender>
     auto operator()(Sender&& sender) const {
-      return _single::stream<Sender>{(Sender&&)sender};
+      return _single::stream<Sender>{std::move(sender)};
     }
   } single{};
 } // namespace _single_cpo

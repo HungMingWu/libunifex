@@ -86,8 +86,8 @@ namespace unifex
                                            Receiver,
                                            Args...>)
           -> callable_result_t<CPO, Receiver, Args...> {
-        return static_cast<CPO&&>(cpo)(
-            r.get_receiver_rvalue(), static_cast<Args&&>(args)...);
+        return std::move(cpo)(
+            r.get_receiver_rvalue(), std::move(args)...);
       }
 
       template <
@@ -107,8 +107,8 @@ namespace unifex
                                            const Receiver&,
               Args...>)
           -> callable_result_t<CPO, const Receiver&, Args...> {
-        return static_cast<CPO&&>(cpo)(
-            r.get_const_receiver(), static_cast<Args&&>(args)...);
+        return std::move(cpo)(
+            r.get_const_receiver(), std::move(args)...);
       }
 
       template <typename Func>
@@ -120,7 +120,7 @@ namespace unifex
       }
 
       Receiver&& get_receiver_rvalue() noexcept {
-        return static_cast<Receiver&&>(op_->receiver_);
+        return std::move(op_->receiver_);
       }
 
       const Receiver& get_const_receiver() const noexcept {
@@ -165,7 +165,7 @@ namespace unifex
         if constexpr (is_nothrow_connectable_v<Successor, successor_receiver_t>) {
           op->succOp_.construct_from([&]() noexcept {
             return unifex::connect(
-                static_cast<Successor&&>(op->successor_), successor_receiver_t{op});
+                std::move(op->successor_), successor_receiver_t{op});
           });
           op->status_ = operation_type::status::successor_operation_constructed;
           unifex::start(op->succOp_.get());
@@ -173,13 +173,13 @@ namespace unifex
           try {
             op->succOp_.construct_from([&]() {
               return unifex::connect(
-                  static_cast<Successor&&>(op->successor_), successor_receiver_t{op});
+                  std::move(op->successor_), successor_receiver_t{op});
             });
             op->status_ = operation_type::status::successor_operation_constructed;
             unifex::start(op->succOp_.get());
           } catch (...) {
             unifex::set_error(
-                static_cast<Receiver&&>(op->receiver_),
+                std::move(op->receiver_),
                 std::current_exception());
           }
         }
@@ -192,8 +192,8 @@ namespace unifex
               int> = 0>
       void set_error(Error&& error) && noexcept {
         unifex::set_error(
-            static_cast<Receiver&&>(op_->receiver_),
-            static_cast<Error&&>(error));
+            std::move(op_->receiver_),
+            std::move(error));
       }
 
       template <
@@ -202,7 +202,7 @@ namespace unifex
               is_callable_v<decltype(unifex::set_done), Receiver, Args...>,
               int> = 0>
       void set_done(Args...) && noexcept {
-        unifex::set_done(static_cast<Receiver&&>(op_->receiver_));
+        unifex::set_done(std::move(op_->receiver_));
       }
 
     private:
@@ -223,8 +223,8 @@ namespace unifex
                                            const Receiver&,
                                            Args...>)
           -> callable_result_t<CPO, const Receiver&, Args...> {
-        return static_cast<CPO&&>(cpo)(
-            r.get_const_receiver(), static_cast<Args&&>(args)...);
+        return std::move(cpo)(
+            r.get_const_receiver(), std::move(args)...);
       }
 
       template <typename Func>
@@ -251,12 +251,12 @@ namespace unifex
           Predecessor&& predecessor,
           Successor2&& successor,
           Receiver2&& receiver)
-        : successor_(static_cast<Successor2&&>(successor))
-        , receiver_(static_cast<Receiver&&>(receiver))
+        : successor_(std::move(successor))
+        , receiver_(std::move(receiver))
         , status_(status::predecessor_operation_constructed) {
         predOp_.construct_from([&] {
           return unifex::connect(
-              static_cast<Predecessor&&>(predecessor),
+              std::move(predecessor),
               predecessor_receiver<Predecessor, Successor, Receiver>{this});
         });
       }
@@ -343,8 +343,8 @@ namespace unifex
       explicit type(Predecessor2&& predecessor, Successor2&& successor)
           noexcept(std::is_nothrow_constructible_v<Predecessor, Predecessor2> &&
               std::is_nothrow_constructible_v<Successor, Successor2>)
-        : predecessor_(static_cast<Predecessor&&>(predecessor))
-        , successor_(static_cast<Successor&&>(successor)) {}
+        : predecessor_(std::move(predecessor))
+        , successor_(std::move(successor)) {}
 
       friend blocking_kind
       tag_invoke(tag_t<blocking>, const sender& sender) {
@@ -382,9 +382,9 @@ namespace unifex
       auto connect(Receiver&& receiver) &&
           -> operation<Predecessor, Successor,  Receiver> {
         return operation<Predecessor, Successor,  Receiver>{
-            (Predecessor &&) predecessor_,
-            (Successor &&) successor_,
-            (Receiver &&) receiver};
+            std::move(predecessor_),
+            std::move(successor_),
+            std::move(receiver)};
       }
 
       template <
@@ -402,7 +402,7 @@ namespace unifex
       auto connect(Receiver&& receiver) &
           -> operation<Predecessor&, Successor, Receiver> {
         return operation<Predecessor&, Successor, Receiver>{
-            predecessor_, successor_, (Receiver &&) receiver};
+            predecessor_, successor_, std::move(receiver)};
       }
 
       template <
@@ -420,7 +420,7 @@ namespace unifex
       auto connect(Receiver&& receiver) const&
           -> operation<const Predecessor&, Successor, Receiver> {
         return operation<const Predecessor&, Successor, Receiver>{
-            predecessor_, successor_, (Receiver &&) receiver};
+            predecessor_, successor_, std::move(receiver)};
       }
 
     private:
@@ -439,7 +439,7 @@ namespace unifex
             noexcept(is_nothrow_tag_invocable_v<_fn, First, Second>)
             -> tag_invoke_result_t<_fn, First, Second> {
           return unifex::tag_invoke(
-              _fn{}, static_cast<First&&>(first), static_cast<Second&&>(second));
+              _fn{}, std::move(first), std::move(second));
         }
       };
 
@@ -451,9 +451,9 @@ namespace unifex
             -> tag_invoke_result_t<_fn, First, Second, Rest...> {
           return unifex::tag_invoke(
               _fn{},
-              static_cast<First&&>(first),
-              static_cast<Second&&>(second),
-              static_cast<Rest&&>(rest)...);
+              std::move(first),
+              std::move(second),
+              std::move(rest)...);
         }
       };
 
@@ -463,7 +463,7 @@ namespace unifex
       template <typename First>
       std::remove_cvref_t<First> operator()(First&& first) const
           noexcept(std::is_nothrow_constructible_v<std::remove_cvref_t<First>, First>) {
-        return static_cast<First&&>(first);
+        return std::move(first);
       }
 
       template <typename First, typename Second>
@@ -473,8 +473,8 @@ namespace unifex
           -> callable_result_t<
               _impl2<is_tag_invocable_v<_fn, First, Second>>, First, Second> {
         return _impl2<is_tag_invocable_v<_fn, First, Second>>{}(
-            static_cast<First&&>(first),
-            static_cast<Second&&>(second));
+            std::move(first),
+            std::move(second));
       }
 
       template <typename First, typename Second, typename Third, typename... Rest>
@@ -484,10 +484,10 @@ namespace unifex
           -> callable_result_t<
               _impl3<is_tag_invocable_v<_fn, First, Second, Third, Rest...>>, First, Second, Third, Rest...> {
         return _impl3<is_tag_invocable_v<_fn, First, Second, Third, Rest...>>{}(
-            static_cast<First&&>(first),
-            static_cast<Second&&>(second),
-            static_cast<Third&&>(third),
-            static_cast<Rest&&>(rest)...);
+            std::move(first),
+            std::move(second),
+            std::move(third),
+            std::move(rest)...);
       }
     } sequence{};
 
@@ -501,8 +501,8 @@ namespace unifex
                   Second>)
               -> _seq::sender<First, Second> {
         return _seq::sender<First, Second>{
-            static_cast<First&&>(first),
-            static_cast<Second&&>(second)};
+            std::move(first),
+            std::move(second)};
       }
     };
 
@@ -521,8 +521,8 @@ namespace unifex
               Rest...> {
         // Fall-back to pair-wise invocation of the sequence() CPO.
         return sequence(
-            sequence(static_cast<First&&>(first), static_cast<Second&&>(second)),
-            static_cast<Rest&&>(rest)...);
+            sequence(std::move(first), std::move(second)),
+            std::move(rest)...);
       }
     };
   } // _seq_cpo

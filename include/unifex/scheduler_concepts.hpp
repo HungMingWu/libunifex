@@ -31,7 +31,7 @@ namespace _schedule {
       constexpr auto operator()(Scheduler&& s) const
           noexcept(is_nothrow_tag_invocable_v<_fn, Scheduler>)
           -> tag_invoke_result_t<_fn, Scheduler> {
-        return tag_invoke(_fn{}, static_cast<Scheduler&&>(s));
+        return tag_invoke(_fn{}, std::move(s));
       }
     };
 
@@ -42,7 +42,7 @@ namespace _schedule {
         -> callable_result_t<
             _impl<is_tag_invocable_v<_fn, Scheduler>>, Scheduler> {
       return _impl<is_tag_invocable_v<_fn, Scheduler>>{}(
-          static_cast<Scheduler&&>(s));
+          std::move(s));
     }
 
     constexpr sender operator()() const noexcept;
@@ -52,9 +52,9 @@ namespace _schedule {
   struct _fn::_impl<false> {
     template <typename Scheduler>
     constexpr auto operator()(Scheduler&& s) noexcept(
-        noexcept(static_cast<Scheduler&&>(s).schedule()))
-        -> decltype(static_cast<Scheduler&&>(s).schedule()) {
-      return static_cast<Scheduler&&>(s).schedule();
+        noexcept(std::move(s).schedule()))
+        -> decltype(std::move(s).schedule()) {
+      return std::move(s).schedule();
     }
   };
 } // namespace _schedule
@@ -126,8 +126,8 @@ namespace _schedule_after {
         -> callable_result_t<
             _impl<is_tag_invocable_v<_fn, TimeScheduler, Duration>>, TimeScheduler, Duration> {
       return _impl<is_tag_invocable_v<_fn, TimeScheduler, Duration>>{}(
-          static_cast<TimeScheduler&&>(s),
-          static_cast<Duration&&>(d));
+          std::move(s),
+          std::move(d));
     }
 
     template<typename Duration>
@@ -140,9 +140,9 @@ namespace _schedule_after {
   struct _fn::_impl<false> {
     template <typename TimeScheduler, typename Duration>
     constexpr auto operator()(TimeScheduler&& s, Duration&& d) const noexcept(
-        noexcept(static_cast<TimeScheduler&&>(s).schedule_after((Duration &&) d)))
-        -> decltype(static_cast<TimeScheduler&&>(s).schedule_after((Duration &&) d)) {
-      return static_cast<TimeScheduler&&>(s).schedule_after((Duration &&) d);
+        noexcept(std::move(s).schedule_after((Duration &&) d)))
+        -> decltype(std::move(s).schedule_after((Duration &&) d)) {
+      return std::move(s).schedule_after((Duration &&) d);
     }
   };
 
@@ -198,8 +198,8 @@ namespace _schedule_at {
         -> callable_result_t<
             _impl<is_tag_invocable_v<_fn, TimeScheduler, TimePoint>>, TimeScheduler, TimePoint> {
       return _impl<is_tag_invocable_v<_fn, TimeScheduler, TimePoint>>{}(
-          static_cast<TimeScheduler&&>(s),
-          static_cast<TimePoint&&>(tp));
+          std::move(s),
+          std::move(tp));
     }
   } schedule_at {};
 
@@ -207,9 +207,9 @@ namespace _schedule_at {
   struct _fn::_impl<false> {
     template <typename TimeScheduler, typename TimePoint>
     constexpr auto operator()(TimeScheduler&& s, TimePoint&& tp) const noexcept(
-        noexcept(static_cast<TimeScheduler&&>(s).schedule_at((TimePoint &&) tp)))
-        -> decltype(static_cast<TimeScheduler&&>(s).schedule_at((TimePoint &&) tp)) {
-      return static_cast<TimeScheduler&&>(s).schedule_at((TimePoint &&) tp);
+        noexcept(std::move(s).schedule_at((TimePoint &&) tp)))
+        -> decltype(std::move(s).schedule_at((TimePoint &&) tp)) {
+      return std::move(s).schedule_at((TimePoint &&) tp);
     }
   };
 } // namespace _schedule_at
@@ -234,7 +234,7 @@ namespace _now {
         -> callable_result_t<
             _impl<is_tag_invocable_v<_fn, TimeScheduler>>, TimeScheduler> {
       return _impl<is_tag_invocable_v<_fn, TimeScheduler>>{}(
-          static_cast<TimeScheduler&&>(s));
+          std::move(s));
     }
   } now {};
 
@@ -242,9 +242,9 @@ namespace _now {
   struct _fn::_impl<false> {
     template <typename TimeScheduler>
     constexpr auto operator()(TimeScheduler&& s) const noexcept(
-        noexcept(static_cast<TimeScheduler&&>(s).now()))
-        -> decltype(static_cast<TimeScheduler&&>(s).now()) {
-      return static_cast<TimeScheduler&&>(s).now();
+        noexcept(std::move(s).now()))
+        -> decltype(std::move(s).now()) {
+      return std::move(s).now();
     }
   };
 } // namespace _now

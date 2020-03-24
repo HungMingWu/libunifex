@@ -53,14 +53,14 @@ struct _error_cleanup_receiver<Operation>::type {
   void set_error(Error error) noexcept {
     auto& op = op_;
     op.errorCleanup_.destruct();
-    unifex::set_error(static_cast<receiver_type&&>(op.receiver_), (Error &&) error);
+    unifex::set_error(std::move(op.receiver_), std::move(error));
   }
 
   void set_done() noexcept {
     auto& op = op_;
     auto ex = std::move(ex_);
     op.errorCleanup_.destruct();
-    unifex::set_error(static_cast<receiver_type&&>(op.receiver_), std::move(ex));
+    unifex::set_error(std::move(op.receiver_), std::move(ex));
   }
 
   template <
@@ -105,14 +105,14 @@ struct _done_cleanup_receiver<Operation>::type {
   void set_error(Error error) && noexcept {
     auto& op = op_;
     op.doneCleanup_.destruct();
-    unifex::set_error(static_cast<receiver_type&&>(op.receiver_), (Error &&) error);
+    unifex::set_error(std::move(op.receiver_), std::move(error));
   }
 
   void set_done() && noexcept {
     auto& op = op_;
     op.doneCleanup_.destruct();
     unifex::set_value(
-        static_cast<receiver_type&&>(op.receiver_),
+        std::move(op.receiver_),
         std::forward<state_type>(op.state_));
   }
 
@@ -179,7 +179,7 @@ struct _next_receiver<Operation>::type {
       op.state_ = std::invoke(
           op.reducer_,
           std::forward<state_type>(op.state_),
-          (Values &&) values...);
+          std::move(values)...);
       op.next_.construct_from([&]() {
         return unifex::connect(next(op.stream_), _reduce::next_receiver<Operation>{op});
       });
@@ -217,7 +217,7 @@ struct _next_receiver<Operation>::type {
 
   template <typename Error>
   void set_error(Error&& e) && noexcept {
-    std::move(*this).set_error(std::make_exception_ptr((Error &&) e));
+    std::move(*this).set_error(std::make_exception_ptr(std::move(e)));
   }
 };
 
@@ -268,7 +268,7 @@ struct _op<StreamSender, State, ReducerFunc, Receiver>::type {
       unifex::start(next_.get());
     } catch (...) {
       unifex::set_error(
-          static_cast<Receiver&&>(receiver_), std::current_exception());
+          std::move(receiver_), std::current_exception());
     }
   }
 };
@@ -307,10 +307,10 @@ struct _sender<StreamSender, State, ReducerFunc>::type {
   template <typename Receiver>
   operation<Receiver> connect(Receiver&& receiver) && {
     return operation<Receiver>{
-        (StreamSender &&) stream_,
-        (State &&) initialState_,
-        (ReducerFunc &&) reducer_,
-        (Receiver &&) receiver};
+        std::move(stream_),
+        std::move(initialState_),
+        std::move(reducer_),
+        std::move(receiver)};
   }
 };
 } // namespace _reduce
@@ -327,9 +327,9 @@ namespace _reduce_cpo {
             StreamSender, State, ReducerFunc>)
         -> _reduce::sender<StreamSender, State, ReducerFunc> {
       return _reduce::sender<StreamSender, State, ReducerFunc>{
-          (StreamSender &&) stream,
-          (State &&) initialState,
-          (ReducerFunc &&) reducer};
+          std::move(stream),
+          std::move(initialState),
+          std::move(reducer)};
     }
   } reduce_stream{};
 } // namespace _reduce_cpo

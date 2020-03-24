@@ -130,7 +130,7 @@ class inplace_stop_callback final : private inplace_stop_callback_base {
  public:
   explicit inplace_stop_callback(inplace_stop_token token, F&& func) noexcept(
       std::is_nothrow_move_constructible_v<F>)
-      : inplace_stop_callback_base(token.source_), func_((F &&) func) {
+      : inplace_stop_callback_base(token.source_), func_(std::move(func)) {
     if (source_ != nullptr) {
       if (!source_->try_add_callback(this)) {
         source_ = nullptr;

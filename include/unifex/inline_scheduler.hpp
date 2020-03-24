@@ -42,16 +42,16 @@ namespace _inline_sched {
 
     template <typename Receiver2>
     explicit type(Receiver2&& r)
-      : receiver_((Receiver2 &&) r) {}
+      : receiver_(std::move(r)) {}
 
     void start() noexcept {
       if constexpr (is_stop_never_possible_v<stop_token_type>) {
-        unifex::set_value((Receiver &&) receiver_);
+        unifex::set_value(std::move(receiver_));
       } else {
         if (get_stop_token(receiver_).stop_requested()) {
-          unifex::set_done((Receiver &&) receiver_);
+          unifex::set_done(std::move(receiver_));
         } else {
-          unifex::set_value((Receiver &&) receiver_);
+          unifex::set_value(std::move(receiver_));
         }
       }
     }
@@ -75,7 +75,7 @@ namespace _inline_sched {
 
       template <typename Receiver>
       operation<Receiver> connect(Receiver&& receiver) {
-        return operation<Receiver>{(Receiver &&) receiver};
+        return operation<Receiver>{std::move(receiver)};
       }
     };
 

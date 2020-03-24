@@ -19,6 +19,7 @@
 #include <unifex/type_traits.hpp>
 
 #include <type_traits>
+#include <utility>
 
 namespace unifex {
 namespace _rec_cpo {
@@ -32,7 +33,7 @@ namespace _rec_cpo {
               is_nothrow_tag_invocable_v<_set_value_fn, Receiver, Values...>)
           -> tag_invoke_result_t<_set_value_fn, Receiver, Values...> {
         return unifex::tag_invoke(
-            _set_value_fn{}, (Receiver &&) r, (Values &&) values...);
+            _set_value_fn{}, std::move(r), std::move(values)...);
       }
     };
   public:
@@ -45,7 +46,7 @@ namespace _rec_cpo {
             _impl<is_tag_invocable_v<_set_value_fn, Receiver, Values...>>,
             Receiver, Values...> {
       return _impl<is_tag_invocable_v<_set_value_fn, Receiver, Values...>>{}(
-          (Receiver &&) r, (Values &&) values...);
+          std::move(r), std::move(values)...);
     }
   } set_value{};
 
@@ -54,9 +55,9 @@ namespace _rec_cpo {
     template <typename Receiver, typename... Values>
     auto operator()(Receiver&& r, Values&&... values) const
         noexcept(noexcept(
-            static_cast<Receiver&&>(r).set_value((Values &&) values...)))
-        -> decltype(static_cast<Receiver&&>(r).set_value((Values &&) values...)) {
-      return static_cast<Receiver&&>(r).set_value((Values &&) values...);
+            std::move(r).set_value(std::move(values)...)))
+        -> decltype(std::move(r).set_value(std::move(values)...)) {
+      return std::move(r).set_value(std::move(values)...);
     }
   };
 
@@ -74,7 +75,7 @@ namespace _rec_cpo {
           std::is_void_v<tag_invoke_result_t<_set_error_fn, Receiver, Error>>
         );
         return unifex::tag_invoke(
-            _set_error_fn{}, (Receiver &&) r, (Error&&) error);
+            _set_error_fn{}, std::move(r), std::move(error));
       }
     };
   public:
@@ -84,7 +85,7 @@ namespace _rec_cpo {
             _impl<is_tag_invocable_v<_set_error_fn, Receiver, Error>>,
             Receiver, Error> {
       return _impl<is_tag_invocable_v<_set_error_fn, Receiver, Error>>{}(
-          (Receiver &&) r, (Error&&) error);
+          std::move(r), std::move(error));
     }
   } set_error{};
 
@@ -92,11 +93,11 @@ namespace _rec_cpo {
   struct _set_error_fn::_impl<false> {
     template <typename Receiver, typename Error>
     auto operator()(Receiver&& r, Error&& error) const noexcept
-        -> decltype(static_cast<Receiver&&>(r).set_error((Error&&) error)) {
+        -> decltype(std::move(r).set_error(std::move(error))) {
       static_assert(
-          noexcept(static_cast<Receiver&&>(r).set_error((Error &&) error)),
+          noexcept(std::move(r).set_error(std::move(error))),
           "receiver.set_error() method must be nothrow invocable");
-      return static_cast<Receiver&&>(r).set_error((Error&&) error);
+      return std::move(r).set_error(std::move(error));
     }
   };
 
@@ -113,7 +114,7 @@ namespace _rec_cpo {
         static_assert(
           std::is_void_v<tag_invoke_result_t<_set_done_fn, Receiver>>
         );
-        return unifex::tag_invoke(_set_done_fn{}, (Receiver &&) r);
+        return unifex::tag_invoke(_set_done_fn{}, std::move(r));
       }
     };
   public:
@@ -122,7 +123,7 @@ namespace _rec_cpo {
         -> callable_result_t<
             _impl<is_tag_invocable_v<_set_done_fn, Receiver>>, Receiver> {
       return _impl<is_tag_invocable_v<_set_done_fn, Receiver>>{}(
-          (Receiver &&) r);
+          std::move(r));
     }
   } set_done{};
 
@@ -130,11 +131,11 @@ namespace _rec_cpo {
   struct _set_done_fn::_impl<false> {
     template <typename Receiver>
     auto operator()(Receiver&& r) const noexcept
-        -> decltype(static_cast<Receiver&&>(r).set_done()) {
+        -> decltype(std::move(r).set_done()) {
       static_assert(
-          noexcept(static_cast<Receiver&&>(r).set_done()),
+          noexcept(std::move(r).set_done()),
           "receiver.set_done() method must be nothrow invocable");
-      return static_cast<Receiver&&>(r).set_done();
+      return std::move(r).set_done();
     }
   };
 } // namespace _rec_cpo

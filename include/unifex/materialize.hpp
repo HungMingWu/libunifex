@@ -42,7 +42,7 @@ namespace unifex
       template <typename Receiver2>
       explicit type(Receiver2&& receiver) noexcept(
           std::is_nothrow_constructible_v<Receiver, Receiver2>)
-        : receiver_(static_cast<Receiver2&&>(receiver)) {}
+        : receiver_(std::move(receiver)) {}
 
       template <
           typename... Values,
@@ -60,9 +60,9 @@ namespace unifex
                                                 decltype(unifex::set_value),
                                                 Values...>) {
         unifex::set_value(
-            static_cast<Receiver&&>(receiver_),
+            std::move(receiver_),
             unifex::set_value,
-            static_cast<Values&&>(values)...);
+            std::move(values)...);
       }
 
       template <
@@ -81,18 +81,18 @@ namespace unifex
                           decltype(unifex::set_error),
                           Error>) {
           unifex::set_value(
-              static_cast<Receiver&&>(receiver_),
+              std::move(receiver_),
               unifex::set_error,
-              static_cast<Error&&>(error));
+              std::move(error));
         } else {
           try {
             unifex::set_value(
-                static_cast<Receiver&&>(receiver_),
+                std::move(receiver_),
                 unifex::set_error,
-                static_cast<Error&&>(error));
+                std::move(error));
           } catch (...) {
             unifex::set_error(
-                static_cast<Receiver&&>(receiver_), std::current_exception());
+                std::move(receiver_), std::current_exception());
           }
         }
       }
@@ -112,14 +112,14 @@ namespace unifex
                           Receiver,
                           decltype(unifex::set_done)>) {
           unifex::set_value(
-              static_cast<Receiver&&>(receiver_), unifex::set_done);
+              std::move(receiver_), unifex::set_done);
         } else {
           try {
             unifex::set_value(
-                static_cast<Receiver&&>(receiver_), unifex::set_done);
+                std::move(receiver_), unifex::set_done);
           } catch (...) {
             unifex::set_error(
-                static_cast<Receiver&&>(receiver_), std::current_exception());
+                std::move(receiver_), std::current_exception());
           }
         }
       }
@@ -140,8 +140,8 @@ namespace unifex
                                            const Receiver&,
                                            Args...>)
           -> callable_result_t<CPO, const Receiver&, Args...> {
-        return static_cast<CPO&&>(cpo)(
-            std::as_const(r.receiver_), static_cast<Args&&>(args)...);
+        return std::move(cpo)(
+            std::as_const(r.receiver_), std::move(args)...);
       }
 
       template <
@@ -217,7 +217,7 @@ namespace unifex
           std::enable_if_t<std::is_constructible_v<Source, Source2>, int> = 0>
       explicit type(Source2&& source) noexcept(
           std::is_nothrow_constructible_v<Source, Source2>)
-        : source_(static_cast<Source2&&>(source)) {}
+        : source_(std::move(source)) {}
 
       template <typename Receiver>
       auto connect(Receiver&& r) && noexcept(
@@ -225,8 +225,8 @@ namespace unifex
               std::is_nothrow_constructible_v<std::remove_cvref_t<Receiver>, Receiver>)
           -> operation_t<Source, receiver<Receiver>> {
         return unifex::connect(
-            static_cast<Source&&>(source_),
-            receiver<Receiver>{static_cast<Receiver&&>(r)});
+            std::move(source_),
+            receiver<Receiver>{std::move(r)});
       }
 
       template <typename Receiver>
@@ -238,7 +238,7 @@ namespace unifex
         return unifex::connect(
             source_,
             receiver<Receiver>{
-                static_cast<Receiver&&>(r)});
+                std::move(r)});
       }
 
       template <typename Receiver>
@@ -249,7 +249,7 @@ namespace unifex
           -> operation_t<const Source&, receiver<Receiver>> {
         return unifex::connect(
             std::as_const(source_),
-            receiver<Receiver>{static_cast<Receiver&&>(r)});
+            receiver<Receiver>{std::move(r)});
       }
 
     private:

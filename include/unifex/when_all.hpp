@@ -65,8 +65,8 @@ struct _operation_tuple<Index, Receiver, First, Rest...>::type
   : operation_tuple<Index + 1, Receiver, Rest...> {
   template <typename Parent>
   explicit type(Parent& parent, First&& first, Rest&&... rest)
-    : operation_tuple<Index + 1, Receiver, Rest...>{parent, (Rest &&) rest...},
-      op_(connect((First &&) first, Receiver<Index>{parent})) {}
+    : operation_tuple<Index + 1, Receiver, Rest...>{parent, std::move(rest)...},
+      op_(connect(std::move(first), Receiver<Index>{parent})) {}
 
   void start() noexcept {
     unifex::start(op_);
@@ -121,7 +121,7 @@ struct _element_receiver<Index, Operation>::type final {
       std::get<Index>(op_.values_)
           .emplace(
               std::in_place_type<std::tuple<Values...>>,
-              (Values &&) values...);
+              std::move(values)...);
       op_.element_complete();
     } catch (...) {
       this->set_error(std::current_exception());
@@ -131,7 +131,7 @@ struct _element_receiver<Index, Operation>::type final {
   template <typename Error>
   void set_error(Error&& error) noexcept {
     if (!op_.doneOrError_.exchange(true, std::memory_order_relaxed)) {
-      op_.error_.emplace(std::in_place_type<Error>, (Error &&) error);
+      op_.error_.emplace(std::in_place_type<Error>, std::move(error));
       op_.stopSource_.request_stop();
     }
     op_.element_complete();
@@ -158,7 +158,7 @@ struct _element_receiver<Index, Operation>::type final {
   friend auto tag_invoke(CPO cpo, const R& r, Args&&... args) noexcept(
       is_nothrow_callable_v<CPO, const receiver_type&, Args...>)
       -> callable_result_t<CPO, const receiver_type&, Args...> {
-    return std::move(cpo)(std::as_const(r.get_receiver()), (Args&&)args...);
+    return std::move(cpo)(std::as_const(r.get_receiver()), std::move(args)...);
   }
 
   inplace_stop_source& get_stop_source() const {
@@ -195,8 +195,8 @@ struct _op<Receiver, Senders...>::type {
   friend class _element_receiver;
 
   explicit type(Receiver&& receiver, Senders&&... senders)
-    : receiver_((Receiver &&) receiver),
-      ops_(*this, (Senders &&) senders...) {}
+    : receiver_(std::move(receiver)),
+      ops_(*this, std::move(senders)...) {}
 
   void start() noexcept {
     stopCallback_.construct(
@@ -282,13 +282,13 @@ class _sender<Senders...>::type {
 
   template <typename... Senders2>
   explicit type(Senders2&&... senders)
-    : senders_((Senders2 &&) senders...) {}
+    : senders_(std::move(senders)...) {}
 
   template <typename Receiver>
   operation<Receiver, Senders...> connect(Receiver&& receiver) && {
     return std::apply([&](Senders&&... senders) {
       return operation<Receiver, Senders...>{
-          (Receiver &&) receiver, (Senders &&) senders...};
+          std::move(receiver), std::move(senders)...};
     }, std::move(senders_));
   }
 
@@ -342,7 +342,7 @@ namespace _when_all_cpo {
     template <typename... Senders>
     auto operator()(Senders&&... senders) const
         -> _when_all::sender<Senders...> {
-      return _when_all::sender<Senders...>{(Senders &&) senders...};
+      return _when_all::sender<Senders...>{std::move(senders)...};
     }
   } when_all{};
 } // namespace _when_all_cpo

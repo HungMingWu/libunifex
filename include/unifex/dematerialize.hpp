@@ -42,7 +42,7 @@ namespace _demat {
       std::enable_if_t<std::is_constructible_v<Receiver, Receiver2>, int> = 0>
     explicit type(Receiver2&& receiver) noexcept(
         std::is_nothrow_constructible_v<Receiver, Receiver2>)
-      : receiver_(static_cast<Receiver2&&>(receiver)) {}
+      : receiver_(std::move(receiver)) {}
 
     template <
         typename CPO,
@@ -52,9 +52,9 @@ namespace _demat {
             int> = 0>
     void set_value(CPO cpo, Values&&... values) && noexcept(
         is_nothrow_callable_v<CPO, Receiver, Values...>) {
-      static_cast<CPO&&>(cpo)(
-          static_cast<Receiver&&>(receiver_),
-          static_cast<Values&&>(values)...);
+      std::move(cpo)(
+          std::move(receiver_),
+          std::move(values)...);
     }
 
     template <
@@ -64,7 +64,7 @@ namespace _demat {
             int> = 0>
     void set_error(Error&& error) && noexcept {
       unifex::set_error(
-          static_cast<Receiver&&>(receiver_), static_cast<Error&&>(error));
+          std::move(receiver_), std::move(error));
     }
 
     template <
@@ -74,7 +74,7 @@ namespace _demat {
                 is_callable_v<decltype(unifex::set_done), Receiver>,
             int> = 0>
     void set_done(DummyPack...) && noexcept {
-      unifex::set_done(static_cast<Receiver&&>(receiver_));
+      unifex::set_done(std::move(receiver_));
     }
 
     template <
@@ -88,8 +88,8 @@ namespace _demat {
     friend auto tag_invoke(CPO cpo, const UNIFEX_USE_NON_DEDUCED_TYPE(R, type)& r, Args&&... args)
         noexcept(is_nothrow_callable_v<CPO, const Receiver&, Args...>)
         -> callable_result_t<CPO, const Receiver&, Args...> {
-      return static_cast<CPO&&>(cpo)(
-          std::as_const(r.receiver_), static_cast<Args&&>(args)...);
+      return std::move(cpo)(
+          std::as_const(r.receiver_), std::move(args)...);
     }
 
     template <typename Func>
@@ -174,7 +174,7 @@ namespace _demat {
     template <typename Source2>
     explicit type(Source2&& source)
         noexcept(std::is_nothrow_constructible_v<Source, Source2>)
-      : source_(static_cast<Source2&&>(source)) {}
+      : source_(std::move(source)) {}
 
     template <
         typename Receiver,
@@ -186,8 +186,8 @@ namespace _demat {
                  std::is_nothrow_constructible_v<std::remove_cvref_t<Receiver>, Receiver>)
         -> operation_t<Source, receiver<Receiver>> {
       return unifex::connect(
-          static_cast<Source&&>(source_),
-          receiver<Receiver>{static_cast<Receiver&&>(r)});
+          std::move(source_),
+          receiver<Receiver>{std::move(r)});
     }
 
     template <
@@ -201,7 +201,7 @@ namespace _demat {
         -> operation_t<Source&, receiver<Receiver>> {
       return unifex::connect(
           source_,
-          receiver<Receiver>{static_cast<Receiver&&>(r)});
+          receiver<Receiver>{std::move(r)});
     }
 
     template <
@@ -215,7 +215,7 @@ namespace _demat {
         -> operation_t<const Source&, receiver<Receiver>> {
       return unifex::connect(
           std::as_const(source_),
-          receiver<Receiver>{static_cast<Receiver&&>(r)});
+          receiver<Receiver>{std::move(r)});
     }
 
   private:
@@ -231,7 +231,7 @@ namespace _demat_cpo {
       template <typename Sender>
       auto operator()(Sender&& predecessor) const
           noexcept(is_nothrow_tag_invocable_v<_fn, Sender>) {
-        return unifex::tag_invoke(_fn{}, (Sender&&) predecessor);
+        return unifex::tag_invoke(_fn{}, std::move(predecessor));
       }
     };
    public:
@@ -239,7 +239,7 @@ namespace _demat_cpo {
     auto operator()(Sender&& predecessor) const
         noexcept(is_nothrow_callable_v<
           _impl<is_tag_invocable_v<_fn, Sender>>, Sender>) {
-      return _impl<is_tag_invocable_v<_fn, Sender>>{}((Sender&&) predecessor);
+      return _impl<is_tag_invocable_v<_fn, Sender>>{}(std::move(predecessor));
     }
   } dematerialize{};
 
@@ -249,7 +249,7 @@ namespace _demat_cpo {
     auto operator()(Sender&& predecessor) const
         noexcept(std::is_nothrow_constructible_v<std::remove_cvref_t<Sender>, Sender>)
         -> _demat::sender<Sender> {
-      return _demat::sender<Sender>{(Sender &&) predecessor};
+      return _demat::sender<Sender>{std::move(predecessor)};
     }
   };
 } // namespace _demat_cpo

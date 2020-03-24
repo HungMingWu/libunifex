@@ -51,14 +51,14 @@ struct _value_receiver<Receiver, Values...>::type {
     std::apply(
         [&](Values && ... values) noexcept {
           unifex::set_value(
-              std::forward<Receiver>(receiver_), (Values &&) values...);
+              std::forward<Receiver>(receiver_), std::move(values)...);
         },
         std::move(values_));
   }
 
   template <typename Error>
   void set_error(Error&& error) noexcept {
-    unifex::set_error(std::forward<Receiver>(receiver_), (Error &&) error);
+    unifex::set_error(std::forward<Receiver>(receiver_), std::move(error));
   }
 
   void set_done() noexcept {
@@ -103,7 +103,7 @@ struct _error_receiver<Receiver, Error>::type {
   template <typename OtherError>
   void set_error(OtherError&& otherError) noexcept {
     unifex::set_error(
-        std::forward<Receiver>(receiver_), (OtherError &&) otherError);
+        std::forward<Receiver>(receiver_), std::move(otherError));
   }
 
   void set_done() noexcept {
@@ -147,7 +147,7 @@ struct _done_receiver<Receiver>::type {
   template <typename OtherError>
   void set_error(OtherError&& otherError) noexcept {
     unifex::set_error(
-        std::forward<Receiver>(receiver_), (OtherError &&) otherError);
+        std::forward<Receiver>(receiver_), std::move(otherError));
   }
 
   void set_done() noexcept {
@@ -190,12 +190,12 @@ struct _predecessor_receiver<Successor, Receiver>::type {
   void set_value(Values&&... values) && noexcept {
     try {
       submit(
-          (Successor &&) successor_,
+          std::move(successor_),
           value_receiver<Receiver, Values...>{
-              {(Values &&) values...}, (Receiver &&) receiver_});
+              {std::move(values)...}, std::move(receiver_)});
     } catch (...) {
       unifex::set_error(
-          static_cast<Receiver&&>(receiver_), std::current_exception());
+          std::move(receiver_), std::current_exception());
     }
   }
 
@@ -203,23 +203,23 @@ struct _predecessor_receiver<Successor, Receiver>::type {
   void set_error(Error&& error) && noexcept {
     try {
       submit(
-          (Successor &&) successor_,
+          std::move(successor_),
           error_receiver<Receiver, Error>{
-              (Error &&) error, (Receiver &&) receiver_});
+              std::move(error), std::move(receiver_)});
     } catch (...) {
       unifex::set_error(
-          static_cast<Receiver&&>(receiver_), std::current_exception());
+          std::move(receiver_), std::current_exception());
     }
   }
 
   void set_done() && noexcept {
     try {
       submit(
-          (Successor &&) successor_,
-          done_receiver<Receiver>{(Receiver &&) receiver_});
+          std::move(successor_),
+          done_receiver<Receiver>{std::move(receiver_)});
     } catch (...) {
       unifex::set_error(
-          static_cast<Receiver&&>(receiver_), std::current_exception());
+          std::move(receiver_), std::current_exception());
     }
   }
 
@@ -298,10 +298,10 @@ struct _sender<Predecessor, Successor>::type {
   template <typename Receiver>
   auto connect(Receiver&& receiver) && {
     return unifex::connect(
-        static_cast<Predecessor&&>(pred_),
+        std::move(pred_),
         predecessor_receiver<Successor, Receiver>{
-            static_cast<Successor&&>(succ_),
-            static_cast<Receiver&&>(receiver)});
+            std::move(succ_),
+            std::move(receiver)});
   }
 };
 } // namespace _via
@@ -314,8 +314,8 @@ namespace _via_cpo {
             _via::sender<Predecessor, Successor>, Predecessor, Successor>)
         -> _via::sender<Predecessor, Successor> {
       return _via::sender<Predecessor, Successor>{
-          (Predecessor &&) pred,
-          (Successor &&) succ};
+          std::move(pred),
+          std::move(succ)};
     }
   } via{};
 } // namespace _via_cpo

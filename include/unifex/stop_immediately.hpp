@@ -118,7 +118,7 @@ struct _stream<SourceStream, Values...>::type {
     void set_value(Values... values) && noexcept {
       handle_signal([&](next_receiver_base* receiver) noexcept {
         try {
-          std::move(*receiver).set_value((Values&&)values...);
+          std::move(*receiver).set_value(std::move(values)...);
         } catch (...) {
           std::move(*receiver).set_error(std::current_exception());
         }
@@ -133,7 +133,7 @@ struct _stream<SourceStream, Values...>::type {
 
     template<typename Error>
     void set_error(Error&& error) && noexcept {
-      std::move(*this).set_error(std::make_exception_ptr((Error&&)error));
+      std::move(*this).set_error(std::make_exception_ptr(std::move(error)));
     }
 
     void set_error(std::exception_ptr ex) && noexcept {
@@ -220,7 +220,7 @@ struct _stream<SourceStream, Values...>::type {
 
           void set_value(Values&&... values) && noexcept final {
             op_.stopCallback_.destruct();
-            unifex::set_value(std::move(op_.receiver_), (Values&&)values...);
+            unifex::set_value(std::move(op_.receiver_), std::move(values)...);
           }
 
           void set_done() && noexcept final {
@@ -247,7 +247,7 @@ struct _stream<SourceStream, Values...>::type {
         explicit type(stream& strm, Receiver2&& receiver)
           : stream_(strm)
           , concreteReceiver_(*this)
-          , receiver_{(Receiver2&&)receiver}
+          , receiver_{std::move(receiver)}
         {}
 
         void start() noexcept {
@@ -294,7 +294,7 @@ struct _stream<SourceStream, Values...>::type {
 
     template<typename Receiver>
     operation<Receiver> connect(Receiver&& receiver) && {
-      return operation<Receiver>{stream_, (Receiver&&)receiver};
+      return operation<Receiver>{stream_, std::move(receiver)};
     }
   };
 
@@ -339,7 +339,7 @@ struct _stream<SourceStream, Values...>::type {
               unifex::set_error(
                 std::move(op.receiver_), std::move(op.stream_.nextError_));
             } else {
-              unifex::set_error(std::move(op.receiver_), (Error&&)error);
+              unifex::set_error(std::move(op.receiver_), std::move(error));
             }
           }
         };
@@ -353,7 +353,7 @@ struct _stream<SourceStream, Values...>::type {
         template<typename Receiver2>
         explicit type(stream& strm, Receiver2&& receiver)
           : stream_(strm)
-          , receiver_((Receiver2&&)receiver)
+          , receiver_(std::move(receiver))
         {}
 
         void start() noexcept {
@@ -411,7 +411,7 @@ struct _stream<SourceStream, Values...>::type {
 
     template<typename Receiver>
     operation<Receiver> connect(Receiver&& receiver) && {
-      return operation<Receiver>{stream_, (Receiver &&) receiver};
+      return operation<Receiver>{stream_, std::move(receiver)};
     }
   };
 
@@ -427,7 +427,7 @@ public:
 
   template<typename SourceStream2>
   explicit type(SourceStream2&& source)
-    : source_((SourceStream2&&)source)
+    : source_(std::move(source))
   {}
 
   type(type&& other)
@@ -450,7 +450,7 @@ namespace _stop_immediately_cpo {
     template <typename SourceStream>
     auto operator()(SourceStream&& source) const {
       return _stop_immediately::stream<SourceStream, Values...>{
-        (SourceStream &&) source};
+        std::move(source)};
     }
   };
 } // namespace _stop_immediately_cpo

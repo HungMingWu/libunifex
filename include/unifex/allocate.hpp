@@ -52,7 +52,7 @@ namespace _alloc {
         }
       };
       op_ = ::new (static_cast<void*>(op))
-          Operation(connect((Sender &&) s, (Receiver &&) r));
+          Operation(connect(std::move(s), std::move(r)));
       constructorSucceeded = true;
     }
 
@@ -97,7 +97,7 @@ namespace _alloc {
       return operation<
           operation_t<Sender, Receiver>,
           std::remove_cvref_t<get_allocator_t<Receiver>>>{
-          (Sender &&) s.sender_, (Receiver &&) r};
+          std::move(s.sender_), std::move(r)};
     }
 
     template <typename Receiver>
@@ -108,7 +108,7 @@ namespace _alloc {
       return operation<
           operation_t<Sender&, Receiver>,
           std::remove_cvref_t<get_allocator_t<Receiver>>>{
-          s.sender_, (Receiver &&) r};
+          s.sender_, std::move(r)};
     }
 
     template <typename Receiver>
@@ -120,7 +120,7 @@ namespace _alloc {
       return operation<
           operation_t<const Sender&, Receiver>,
           std::remove_cvref_t<get_allocator_t<Receiver>>>{
-          std::as_const(s.sender_), (Receiver &&) r};
+          std::as_const(s.sender_), std::move(r)};
     }
 
     Sender sender_;
@@ -135,7 +135,7 @@ namespace _alloc_cpo {
       template <typename Sender>
       auto operator()(Sender&& predecessor) const
           noexcept(is_nothrow_tag_invocable_v<_fn, Sender>) {
-        return unifex::tag_invoke(_fn{}, (Sender&&) predecessor);
+        return unifex::tag_invoke(_fn{}, std::move(predecessor));
       }
     };
   public:
@@ -143,7 +143,7 @@ namespace _alloc_cpo {
     auto operator()(Sender&& predecessor) const
         noexcept(is_nothrow_callable_v<
           _impl<is_tag_invocable_v<_fn, Sender>>, Sender>) {
-      return _impl<is_tag_invocable_v<_fn, Sender>>{}((Sender&&) predecessor);
+      return _impl<is_tag_invocable_v<_fn, Sender>>{}(std::move(predecessor));
     }
   } allocate{};
 
@@ -153,7 +153,7 @@ namespace _alloc_cpo {
     auto operator()(Sender&& predecessor) const
         noexcept(std::is_nothrow_constructible_v<_alloc::sender<Sender>, Sender>)
         -> _alloc::sender<Sender> {
-      return _alloc::sender<Sender>{(Sender &&) predecessor};
+      return _alloc::sender<Sender>{std::move(predecessor)};
     }
   };
 } // namespace _alloc_cpo

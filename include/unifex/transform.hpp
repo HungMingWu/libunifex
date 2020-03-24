@@ -60,30 +60,30 @@ struct _receiver<Receiver, Func>::type {
     using result_type = std::invoke_result_t<Func, Values...>;
     if constexpr (std::is_void_v<result_type>) {
       if constexpr (noexcept(std::invoke(
-                        (Func &&) func_, (Values &&) values...))) {
-        std::invoke((Func &&) func_, (Values &&) values...);
-        unifex::set_value((Receiver &&) receiver_);
+                        std::move(func_), std::move(values)...))) {
+        std::invoke(std::move(func_), std::move(values)...);
+        unifex::set_value(std::move(receiver_));
       } else {
         try {
-          std::invoke((Func &&) func_, (Values &&) values...);
-          unifex::set_value((Receiver &&) receiver_);
+          std::invoke(std::move(func_), std::move(values)...);
+          unifex::set_value(std::move(receiver_));
         } catch (...) {
-          unifex::set_error((Receiver &&) receiver_, std::current_exception());
+          unifex::set_error(std::move(receiver_), std::current_exception());
         }
       }
     } else {
       if constexpr (noexcept(std::invoke(
-                        (Func &&) func_, (Values &&) values...))) {
+                        std::move(func_), std::move(values)...))) {
         unifex::set_value(
-            (Receiver &&) receiver_,
-            std::invoke((Func &&) func_, (Values &&) values...));
+            std::move(receiver_),
+            std::invoke(std::move(func_), std::move(values)...));
       } else {
         try {
           unifex::set_value(
-              (Receiver &&) receiver_,
-              std::invoke((Func &&) func_, (Values &&) values...));
+              std::move(receiver_),
+              std::invoke(std::move(func_), std::move(values)...));
         } catch (...) {
-          unifex::set_error((Receiver &&) receiver_, std::current_exception());
+          unifex::set_error(std::move(receiver_), std::current_exception());
         }
       }
     }
@@ -91,11 +91,11 @@ struct _receiver<Receiver, Func>::type {
 
   template <typename Error>
   void set_error(Error&& error) && noexcept {
-    unifex::set_error((Receiver &&) receiver_, (Error &&) error);
+    unifex::set_error(std::move(receiver_), std::move(error));
   }
 
   void set_done() && noexcept {
-    unifex::set_done((Receiver &&) receiver_);
+    unifex::set_done(std::move(receiver_));
   }
 
   template <
@@ -106,7 +106,7 @@ struct _receiver<Receiver, Func>::type {
   friend auto tag_invoke(CPO cpo, const R& r, Args&&... args) noexcept(
       is_nothrow_callable_v<CPO, const Receiver&, Args...>)
       -> callable_result_t<CPO, const Receiver&, Args...> {
-    return std::move(cpo)(std::as_const(r.receiver_), static_cast<Args&&>(args)...);
+    return std::move(cpo)(std::as_const(r.receiver_), std::move(args)...);
   }
 
   template <typename Visit>
@@ -195,7 +195,7 @@ namespace _tfx_cpo {
       auto operator()(Sender&& predecessor, Func&& func) const
           noexcept(is_nothrow_tag_invocable_v<_fn, Sender, Func>)
           -> tag_invoke_result_t<_fn, Sender, Func> {
-        return unifex::tag_invoke(_fn{}, (Sender&&)predecessor, (Func&&)func);
+        return unifex::tag_invoke(_fn{}, std::move(predecessor), std::move(func));
       }
     };
   public:
@@ -206,7 +206,7 @@ namespace _tfx_cpo {
         -> callable_result_t<
             _impl<is_tag_invocable_v<_fn, Sender, Func>>, Sender, Func> {
       return _impl<is_tag_invocable_v<_fn, Sender, Func>>{}(
-        (Sender&&)predecessor, (Func&&)func);
+        std::move(predecessor), std::move(func));
     }
   } transform{};
 
@@ -217,7 +217,7 @@ namespace _tfx_cpo {
         noexcept(std::is_nothrow_constructible_v<
           _tfx::sender<Sender, Func>, Sender, Func>)
         -> _tfx::sender<Sender, Func> {
-      return _tfx::sender<Sender, Func>{(Sender &&) predecessor, (Func &&) func};
+      return _tfx::sender<Sender, Func>{std::move(predecessor), std::move(func)};
     }
   };
 } // namespace _tfx_cpo
