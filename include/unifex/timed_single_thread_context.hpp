@@ -136,7 +136,7 @@ namespace _timed_single_thread_context {
     template <typename Receiver>
     after_operation<Duration, Receiver> connect(Receiver&& receiver) {
       return after_operation<Duration, Receiver>{
-          *context_, duration_, (Receiver &&) receiver};
+          *context_, duration_, std::move(receiver)};
     }
   };
 
@@ -204,7 +204,7 @@ namespace _timed_single_thread_context {
     template <typename Receiver>
     at_operation<std::remove_cvref_t<Receiver>> connect(Receiver&& receiver) {
       return at_operation<std::remove_cvref_t<Receiver>>{
-          *context_, dueTime_, (Receiver &&) receiver};
+          *context_, dueTime_, std::move(receiver)};
     }
   };
 

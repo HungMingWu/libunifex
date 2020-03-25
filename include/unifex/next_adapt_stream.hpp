@@ -54,8 +54,8 @@ namespace _next_adapt_cpo {
     template <typename Stream, typename AdaptFunc>
     auto operator()(Stream&& stream, AdaptFunc&& adapt) const {
       return _next_adapt::stream<Stream, AdaptFunc>{
-          (Stream &&) stream,
-          (AdaptFunc &&) adapt};
+          std::move(stream),
+          std::move(adapt)};
     }
   } next_adapt_stream{};
 } // namespace _next_adapt_cpo

@@ -33,7 +33,7 @@ namespace _on {
     auto operator()(Sender&& sender, Scheduler&& scheduler) const
         noexcept(is_nothrow_tag_invocable_v<_fn, Sender, Scheduler>) {
       return unifex::tag_invoke(
-          _fn{}, (Sender &&) sender, (Scheduler &&) scheduler);
+          _fn{}, std::move(sender), std::move(scheduler));
     }
 
     template <
@@ -44,7 +44,7 @@ namespace _on {
     auto operator()(Sender&& sender, Scheduler&& scheduler) const {
       return sequence(
           schedule(scheduler),
-          with_query_value((Sender &&) sender, get_scheduler, scheduler));
+          with_query_value(std::move(sender), get_scheduler, scheduler));
     }
   } on{};
 } // namespace _on

@@ -43,7 +43,7 @@ namespace _visit_continuations {
         _fn cpo,
         coro::coroutine_handle<Promise> h,
         Func&& func) {
-      cpo(h.promise(), (Func &&) func);
+      cpo(h.promise(), std::move(func));
     }
 #endif // UNIFEX_NO_COROUTINES
 
@@ -59,7 +59,7 @@ namespace _visit_continuations {
               const Continuation&,
               Func&&>>,
           "tag_invoke() overload for visit_continuations() must return void");
-      return tag_invoke(_fn{}, c, (Func &&) func);
+      return tag_invoke(_fn{}, c, std::move(func));
     }
   } visit_continuations {};
 } // namespace _visit_continuations
@@ -200,7 +200,7 @@ namespace _async_trace {
 
     template <typename Receiver>
     operation<Receiver> connect(Receiver&& r) {
-      return operation<Receiver>{(Receiver &&) r};
+      return operation<Receiver>{std::move(r)};
     }
 
     friend blocking_kind tag_invoke(tag_t<blocking>, const sender&) noexcept {

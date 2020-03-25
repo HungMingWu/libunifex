@@ -50,7 +50,7 @@ namespace _subschedule {
       auto operator()(Scheduler&& sched) const
           noexcept(is_nothrow_tag_invocable_v<_fn, Scheduler>)
           -> tag_invoke_result_t<_fn, Scheduler> {
-        return unifex::tag_invoke(_fn{}, (Scheduler &&) sched);
+        return unifex::tag_invoke(_fn{}, std::move(sched));
       }
     };
   public:
@@ -61,7 +61,7 @@ namespace _subschedule {
         -> callable_result_t<
             _impl<is_tag_invocable_v<_fn, Scheduler>>, Scheduler> {
       return _impl<is_tag_invocable_v<_fn, Scheduler>>{}(
-          (Scheduler &&) sched);
+          std::move(sched));
     }
   } schedule_with_subscheduler{};
 
@@ -75,7 +75,7 @@ namespace _subschedule {
     auto&& scheduleOp = schedule(sched);
     return transform(
         static_cast<decltype(scheduleOp)>(scheduleOp),
-        return_value<Scheduler>{(Scheduler &&) sched});
+        return_value<Scheduler>{std::move(sched)});
     }
   };
 } // namespace _subschedule

@@ -363,7 +363,7 @@ public:
   operation<Source, Func, Receiver> connect(Receiver&& r) &
       noexcept(std::is_nothrow_constructible_v<
           operation<Source, Func, Receiver>, Source&, Func&, Receiver>) {
-      return operation<Source, Func, Receiver>{source_, func_, (Receiver&&)r};
+      return operation<Source, Func, Receiver>{source_, func_, std::move(r)};
   }
 
   template<

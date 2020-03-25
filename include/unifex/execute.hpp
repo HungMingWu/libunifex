@@ -39,11 +39,11 @@ namespace unifex
       template<typename Scheduler, typename Func>
       void operator()(Scheduler&& s, Func&& func) const {
         if constexpr (is_tag_invocable_v<_fn, Scheduler, Func>) {
-          unifex::tag_invoke(*this, (Scheduler&&)s, (Func&&)func);
+          unifex::tag_invoke(*this, std::move(s), std::move(func));
         } else {
           // Default implementation.
           return submit(
-            transform(schedule((Scheduler&&)s), (Func&&)func),
+            transform(schedule(std::move(s)), std::move(func)),
             default_execute_receiver{});
         }
       }

@@ -26,8 +26,8 @@ namespace _then_execute_cpo {
     template <typename Scheduler, typename Predecessor, typename Func>
     auto operator()(Scheduler&& s, Predecessor&& p, Func&& f) const {
       return transform(
-          typed_via((Predecessor &&) p, (Scheduler&&)s),
-          (Func &&) f);
+          typed_via(std::move(p), std::move(s),
+          std::move(f));
     }
   };
 } // namespace _then_execute_cpo

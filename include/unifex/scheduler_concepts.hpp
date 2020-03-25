@@ -92,7 +92,7 @@ struct _schedule::sender {
   friend auto tag_invoke(tag_t<connect>, sender, Receiver &&r)
       -> operation_t<ScheduleSender, Receiver> {
     auto scheduler = get_scheduler(std::as_const(r));
-    return connect(schedule(scheduler), (Receiver &&) r);
+    return connect(schedule(scheduler), std::move(r));
   }
 };
 
@@ -115,7 +115,7 @@ namespace _schedule_after {
       constexpr auto operator()(TimeScheduler&& s, Duration&& d) const
           noexcept(is_nothrow_tag_invocable_v<_fn, TimeScheduler, Duration>)
           -> tag_invoke_result_t<_fn, TimeScheduler, Duration> {
-        return tag_invoke(*this, (TimeScheduler &&) s, (Duration &&) d);
+        return tag_invoke(*this, std::move(s), std::move(d));
       }
     };
 
@@ -140,9 +140,9 @@ namespace _schedule_after {
   struct _fn::_impl<false> {
     template <typename TimeScheduler, typename Duration>
     constexpr auto operator()(TimeScheduler&& s, Duration&& d) const noexcept(
-        noexcept(std::move(s).schedule_after((Duration &&) d)))
-        -> decltype(std::move(s).schedule_after((Duration &&) d)) {
-      return std::move(s).schedule_after((Duration &&) d);
+        noexcept(std::move(s).schedule_after(std::move(d))))
+        -> decltype(std::move(s).schedule_after(std::move(d))) {
+      return std::move(s).schedule_after(std::move(d));
     }
   };
 
@@ -171,7 +171,7 @@ namespace _schedule_after {
     friend auto tag_invoke(tag_t<connect>, const type& s, Receiver&& r)
         -> operation_t<ScheduleAfterSender, Receiver> {
       auto scheduler = get_scheduler(std::as_const(r));
-      return connect(schedule_after(scheduler, std::as_const(s.duration_)), (Receiver&&) r);
+      return connect(schedule_after(scheduler, std::as_const(s.duration_)), std::move(r));
     }
 
     Duration duration_;
@@ -187,7 +187,7 @@ namespace _schedule_at {
       constexpr auto operator()(TimeScheduler&& s, TimePoint&& tp) const
           noexcept(is_nothrow_tag_invocable_v<_fn, TimeScheduler, TimePoint>)
           -> tag_invoke_result_t<_fn, TimeScheduler, TimePoint> {
-        return tag_invoke(*this, (TimeScheduler &&) s, (TimePoint &&) tp);
+        return tag_invoke(*this, std::move(s), std::move(tp));
       }
     };
 
@@ -207,9 +207,9 @@ namespace _schedule_at {
   struct _fn::_impl<false> {
     template <typename TimeScheduler, typename TimePoint>
     constexpr auto operator()(TimeScheduler&& s, TimePoint&& tp) const noexcept(
-        noexcept(std::move(s).schedule_at((TimePoint &&) tp)))
-        -> decltype(std::move(s).schedule_at((TimePoint &&) tp)) {
-      return std::move(s).schedule_at((TimePoint &&) tp);
+        noexcept(std::move(s).schedule_at(std::move(tp))))
+        -> decltype(std::move(s).schedule_at(std::move(tp))) {
+      return std::move(s).schedule_at(std::move(tp));
     }
   };
 } // namespace _schedule_at
@@ -223,7 +223,7 @@ namespace _now {
       constexpr auto operator()(TimeScheduler&& s) const
           noexcept(is_nothrow_tag_invocable_v<_fn, TimeScheduler>)
           -> tag_invoke_result_t<_fn, TimeScheduler> {
-        return tag_invoke(*this, (TimeScheduler &&) s);
+        return tag_invoke(*this, std::move(s));
       }
     };
 

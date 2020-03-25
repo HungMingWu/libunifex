@@ -265,7 +265,7 @@ namespace unifex
         template <typename Source>
         auto operator()(Source&& source) const
             noexcept(is_nothrow_tag_invocable_v<_fn, Source>) {
-          return unifex::tag_invoke(_fn{}, (Source&&) source);
+          return unifex::tag_invoke(_fn{}, std::move(source));
         }
       };
     public:
@@ -273,7 +273,7 @@ namespace unifex
       auto operator()(Source&& source) const
           noexcept(is_nothrow_callable_v<
             _impl<is_tag_invocable_v<_fn, Source>>, Source>) {
-        return _impl<is_tag_invocable_v<_fn, Source>>{}((Source&&) source);
+        return _impl<is_tag_invocable_v<_fn, Source>>{}(std::move(source));
       }
     } materialize{};
 
@@ -283,7 +283,7 @@ namespace unifex
       auto operator()(Source&& source) const
           noexcept(std::is_nothrow_constructible_v<_mat::sender<Source>, Source>)
           -> _mat::sender<Source> {
-        return _mat::sender<Source>{(Source&&) source};
+        return _mat::sender<Source>{std::move(source)};
       }
     };
   } // namespace _mat_cpo

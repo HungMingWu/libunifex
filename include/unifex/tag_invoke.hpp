@@ -18,6 +18,7 @@
 #include <unifex/config.hpp>
 
 #include <type_traits>
+#include <utility>
 
 namespace unifex {
   namespace _tag_invoke {
@@ -26,9 +27,9 @@ namespace unifex {
     struct _fn {
       template <typename CPO, typename... Args>
       constexpr auto operator()(CPO cpo, Args&&... args) const
-          noexcept(noexcept(tag_invoke((CPO &&) cpo, (Args &&) args...)))
-          -> decltype(tag_invoke((CPO &&) cpo, (Args &&) args...)) {
-        return tag_invoke((CPO &&) cpo, (Args &&) args...);
+          noexcept(noexcept(tag_invoke((CPO &&) cpo, std::forward<Args>(args)...)))
+          -> decltype(tag_invoke((CPO &&) cpo, std::forward<Args>(args)...)) {
+        return tag_invoke((CPO &&) cpo, std::forward<Args>(args)...);
       }
     };
 

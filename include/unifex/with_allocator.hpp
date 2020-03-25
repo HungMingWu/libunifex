@@ -23,8 +23,8 @@ namespace _with_alloc_cpo {
   struct _fn {
     template <typename Sender, typename Allocator>
     auto operator()(Sender &&sender, Allocator &&allocator) const {
-      return with_query_value((Sender &&) sender, get_allocator,
-                              (Allocator &&) allocator);
+      return with_query_value(std::move(sender), get_allocator,
+                              std::move(allocator));
     }
   };
 } // namespace _with_alloc_cpo

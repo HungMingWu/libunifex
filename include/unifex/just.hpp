@@ -43,11 +43,11 @@ struct _op<Receiver, Values...>::type {
     try {
       std::apply(
           [&](Values&&... values) {
-            unifex::set_value((Receiver &&) receiver_, (Values &&) values...);
+            unifex::set_value(std::move(receiver_), std::move(values)...);
           },
           std::move(values_));
     } catch (...) {
-      unifex::set_error((Receiver &&) receiver_, std::current_exception());
+      unifex::set_error(std::move(receiver_), std::current_exception());
     }
   }
 };
@@ -75,27 +75,27 @@ class _sender<Values...>::type {
   template <typename... Values2>
   explicit type(Values2&&... values)
     noexcept(std::is_nothrow_constructible_v<std::tuple<Values...>, Values2...>)
-    : values_((Values2 &&) values...) {}
+    : values_(std::move(values)...) {}
 
   template <typename Receiver>
   auto connect(Receiver&& r) &&
     noexcept(std::is_nothrow_move_constructible_v<std::tuple<Values...>>)
     -> operation<Receiver, Values...> {
-    return {std::move(values_), (Receiver &&) r};
+    return {std::move(values_), std::move(r)};
   }
 
   template <typename Receiver>
   auto connect(Receiver&& r) &
     noexcept(std::is_nothrow_constructible_v<std::tuple<Values...>, std::tuple<Values...>&>)
     -> operation<Receiver, Values...> {
-    return {values_, (Receiver &&) r};
+    return {values_, std::move(r)};
   }
 
   template <typename Receiver>
   auto connect(Receiver&& r) const &
     noexcept(std::is_nothrow_copy_constructible_v<std::tuple<Values...>>)
     -> operation<Receiver, Values...> {
-    return {values_, (Receiver &&) r};
+    return {values_, std::move(r)};
   }
 
   friend constexpr blocking_kind tag_invoke(tag_t<blocking>, const type&) noexcept {
@@ -110,7 +110,7 @@ namespace _just_cpo {
     constexpr auto operator()(Values&&... values) const
       noexcept(std::is_nothrow_constructible_v<_just::sender<Values...>, Values...>)
       -> _just::sender<std::decay_t<Values>...> {
-      return _just::sender<Values...>{(Values&&)values...};
+      return _just::sender<Values...>{std::move(values)...};
     }
   } just{};
 } // namespace _just_cpo

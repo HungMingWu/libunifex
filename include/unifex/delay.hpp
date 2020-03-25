@@ -29,9 +29,9 @@ namespace unifex
       template <typename Stream, typename Scheduler, typename Duration>
       auto operator()(Stream&& stream, Scheduler&& scheduler, Duration&& duration) const {
         return adapt_stream(
-            (Stream &&) stream,
-            [scheduler = (Scheduler &&) scheduler,
-            duration = (Duration &&) duration](auto&& sender) {
+            std::move(stream),
+            [scheduler = std::move(scheduler),
+            duration = std::move(duration)](auto&& sender) {
               return finally(
                   static_cast<decltype(sender)>(sender),
                   schedule_after(scheduler, duration));

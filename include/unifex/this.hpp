@@ -107,7 +107,7 @@ struct extract_this<FirstType, RestTypes...> {
       return first;
     } else {
       static_assert(sizeof...(TRest) > 0, "Arguments to extract_this");
-      return extract_this<RestTypes...>{}((TRest &&) rest...);
+      return extract_this<RestTypes...>{}(std::move(rest)...);
     }
   }
 };

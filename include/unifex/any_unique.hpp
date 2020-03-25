@@ -47,7 +47,7 @@ struct vtable_entry<CPO, Ret(Args...)> {
               void* thisPointer = extract_this<Args...>{}(args...);
               T& obj = *static_cast<T*>(thisPointer);
               return std::move(cpo)(
-                  replace_this<Args>::get((Args &&) args, obj)...);
+                  replace_this<Args>::get(std::move(args), obj)...);
       };
     return _any_unique::vtable_entry<CPO>{f};
   }
@@ -77,7 +77,7 @@ struct vtable_entry<CPO, Ret(Args...) noexcept> {
                 void* thisPointer = extract_this<Args...>{}(args...);
                 T& obj = *static_cast<T*>(thisPointer);
                 return std::move(cpo)(
-                    replace_this<Args>::get((Args&&)args, obj)...);
+                    replace_this<Args>::get(std::move(args), obj)...);
         };
         return _any_unique::vtable_entry<CPO>{f};
     }
@@ -187,11 +187,11 @@ struct _with_type_erased_tag_invoke<
    private:
       template <typename T>
       static void* get_object_address(T&& t) noexcept {
-        return static_cast<T&&>(t).get_object_address();
+        return std::move(t).get_object_address();
       }
       template <typename T>
       static auto  get_vtable(T&& t) {
-        return static_cast<T&&>(t).get_vtable();
+        return std::move(t).get_vtable();
       }
    public:
     friend Ret tag_invoke(
@@ -202,7 +202,7 @@ struct _with_type_erased_tag_invoke<
       auto* fnPtr = get_vtable(t)->template get<CPO>();
       return fnPtr(
           std::move(cpo),
-          replace_this<Args>::get((Args &&) args, objPtr)...);
+          replace_this<Args>::get(std::move(args), objPtr)...);
     }
   };
 };
@@ -252,7 +252,7 @@ struct _with_forwarding_tag_invoke<
         replace_this_t<Args, Derived>... args) noexcept(NoExcept) {
       auto& wrapper = extract_this<Args...>{}(args...);
       auto& wrapped = wrapper.value;
-      return std::move(cpo)(replace_this<Args>::get((Args &&) args, wrapped)...);
+      return std::move(cpo)(replace_this<Args>::get(std::move(args), wrapped)...);
     }
   };
 };
@@ -277,7 +277,7 @@ inline constexpr struct deallocate_cpo {
       typename T,
       std::enable_if_t<is_tag_invocable_v<deallocate_cpo, T&&>, int> = 0>
   void operator()(T&& obj) const noexcept {
-    tag_invoke(deallocate_cpo{}, (T &&) obj);
+    tag_invoke(deallocate_cpo{}, std::move(obj));
   }
 } deallocate;
 
@@ -311,7 +311,7 @@ class _make<CPOs...>::type
       // ends up duplicating them. But std::allocator doesn't do the same
       // injection of the parameters.
       ::new ((void*)ptr)
-          concrete_type{std::allocator_arg, typedAllocator, (Args &&) args...};
+          concrete_type{std::allocator_arg, typedAllocator, std::forward<Args>(args)...};
     } catch (...) {
       allocator_traits::deallocate(typedAllocator, ptr, 1);
       throw;
@@ -331,7 +331,7 @@ class _make<CPOs...>::type
           std::allocator_arg,
           std::move(alloc),
           std::in_place_type<std::remove_cvref_t<Concrete>>,
-          (Concrete &&) concrete) {}
+          std::move(concrete)) {}
 
   template <typename Concrete, typename... Args>
   explicit type(std::in_place_type_t<Concrete> tag, Args&&... args)
@@ -339,7 +339,7 @@ class _make<CPOs...>::type
           std::allocator_arg,
           std::allocator<unsigned char>{},
           tag,
-          (Args &&) args...) {}
+          std::forward<Args>(args)...) {}
 
   template <
       typename Concrete,
@@ -347,7 +347,7 @@ class _make<CPOs...>::type
   type(Concrete&& concrete)
     : type(
           std::in_place_type<std::remove_cvref_t<Concrete>>,
-          (Concrete &&) concrete) {}
+          std::move(concrete)) {}
 
   type(type&& other) noexcept
     : impl_(std::exchange(other.impl_, nullptr)), vtable_(other.vtable_) {}
@@ -373,7 +373,7 @@ class _make<CPOs...>::type
       explicit type(std::allocator_arg_t, allocator_type alloc, Args&&... args)
         noexcept(std::is_nothrow_move_constructible_v<allocator_type> &&
             std::is_nothrow_constructible_v<Concrete, Args...>)
-        : value((Args &&) args...)
+        : value(std::forward<Args>(args)...)
         , alloc(std::move(alloc)) {}
 
       friend void tag_invoke(

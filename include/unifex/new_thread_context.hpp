@@ -41,7 +41,7 @@ class _op<Receiver>::type final {
  public:
   template<typename Receiver2>
   explicit type(context* ctx, Receiver2&& r)
-    : ctx_(ctx), receiver_((Receiver2&&)r) {}
+    : ctx_(ctx), receiver_(std::move(r)) {}
 
   ~type() {
       assert(!thread_.joinable());
@@ -78,7 +78,7 @@ private:
 
     template<typename Receiver>
     operation<Receiver> connect(Receiver&& r) const {
-      return operation<Receiver>{context_, (Receiver&&)r};
+      return operation<Receiver>{context_, std::move(r)};
     }
 
   private:

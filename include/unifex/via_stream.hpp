@@ -26,11 +26,11 @@ namespace _via_stream_cpo {
     template <typename StreamSender, typename Scheduler>
     auto operator()(Scheduler&& scheduler, StreamSender&& stream) const {
       return adapt_stream(
-          (StreamSender &&) stream,
-          [s = (Scheduler &&) scheduler](auto&& sender) mutable {
+          std::move(stream),
+          [s = std::move(scheduler)](auto&& sender) mutable {
             return via(schedule(s), (decltype(sender))sender);
           },
-          [s = (Scheduler &&) scheduler](auto&& sender) mutable {
+          [s = std::move(scheduler)](auto&& sender) mutable {
             return typed_via((decltype(sender))sender, s);
           });
     }

@@ -61,7 +61,7 @@ struct next_sender {
 
   template <typename Receiver>
   operation<Receiver> connect(Receiver&& receiver) && {
-    return operation<Receiver>{stream_, (Receiver &&) receiver};
+    return operation<Receiver>{stream_, std::move(receiver)};
   }
 };
 

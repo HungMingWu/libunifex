@@ -66,7 +66,7 @@ struct task {
     void return_value(Value&& value) noexcept(
         std::is_nothrow_constructible_v<T, Value>) {
       reset_value();
-      value_.construct((Value &&) value);
+      value_.construct(std::move(value));
       state_ = state::value;
     }
 
@@ -100,7 +100,7 @@ struct task {
     friend void
     tag_invoke(tag_t<visit_continuations>, const promise_type& p, Func&& func) {
       if (p.info_) {
-        visit_continuations(*p.info_, (Func &&) func);
+        visit_continuations(*p.info_, std::move(func));
       }
     }
 

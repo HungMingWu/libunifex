@@ -108,7 +108,7 @@ namespace _thread_unsafe_event_loop {
         Duration d,
         thread_unsafe_event_loop& loop)
         : operation_base(loop)
-        , receiver_((Receiver2 &&) r)
+        , receiver_(std::move(r))
         , duration_(d) {}
 
     void execute() noexcept override {
@@ -147,7 +147,7 @@ namespace _thread_unsafe_event_loop {
     template <typename Receiver>
     after_operation<Duration, std::remove_cvref_t<Receiver>> connect(Receiver&& r) && {
       return after_operation<Duration, std::remove_cvref_t<Receiver>>{
-          (Receiver &&) r, duration_, loop_};
+          std::move(r), duration_, loop_};
     }
    private:
     friend scheduler;
@@ -187,7 +187,7 @@ namespace _thread_unsafe_event_loop {
         Receiver2&& r,
         time_point_t tp,
         thread_unsafe_event_loop& loop)
-        : operation_base(loop), receiver_((Receiver2 &&) r) {
+        : operation_base(loop), receiver_(std::move(r)) {
       this->dueTime_ = tp;
     }
 
@@ -223,7 +223,7 @@ namespace _thread_unsafe_event_loop {
     template <typename Receiver>
     at_operation<std::remove_cvref_t<Receiver>> connect(Receiver&& r) && {
       return at_operation<std::remove_cvref_t<Receiver>>{
-          (Receiver &&) r, dueTime_, loop_};
+          std::move(r), dueTime_, loop_};
     }
 
    private:
@@ -279,7 +279,7 @@ namespace _thread_unsafe_event_loop {
       template <typename... Values>
       void set_value(Values&&... values) && noexcept {
         try {
-          promise_.value_.construct((Values &&) values...);
+          promise_.value_.construct(std::move(values)...);
           promise_.state_ = state::value;
         } catch (...) {
           promise_.exception_.construct(std::current_exception());
@@ -317,7 +317,7 @@ namespace _thread_unsafe_event_loop {
 
    public:
     explicit type(StopToken&& stopToken) noexcept
-      : stopToken_((StopToken &&) stopToken) {}
+      : stopToken_(std::move(stopToken)) {}
 
     ~type() {
       if (state_ == state::value) {
@@ -384,7 +384,7 @@ class thread_unsafe_event_loop {
     using promise_t = _thread_unsafe_event_loop::sync_wait_promise<Result, StopToken&&>;
     promise_t promise{(StopToken &&) st};
 
-    auto op = connect((Sender &&) sender, promise.get_receiver());
+    auto op = connect(std::move(sender), promise.get_receiver());
     start(op);
 
     run_until_empty();

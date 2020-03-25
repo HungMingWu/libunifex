@@ -25,8 +25,8 @@ namespace _on_stream {
     template <typename StreamSender, typename Scheduler>
     auto operator()(Scheduler&& scheduler, StreamSender&& stream) const {
       return adapt_stream(
-          (StreamSender &&) stream,
-          [s = (Scheduler &&) scheduler](auto&& sender) mutable {
+          std::move(stream),
+          [s = std::move(scheduler)](auto&& sender) mutable {
             return on((decltype(sender))sender, s);
           });
     }

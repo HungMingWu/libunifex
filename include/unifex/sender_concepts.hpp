@@ -67,7 +67,7 @@ namespace _connect {
       auto operator()(Sender&& s, Receiver&& r) const
           noexcept(is_nothrow_tag_invocable_v<_fn, Sender, Receiver>)
           -> tag_invoke_result_t<_fn, Sender, Receiver> {
-        return unifex::tag_invoke(_fn{}, (Sender &&) s, (Receiver &&) r);
+        return unifex::tag_invoke(_fn{}, std::move(s), std::move(r));
       }
     };
    public:
@@ -77,8 +77,8 @@ namespace _connect {
             _impl<is_tag_invocable_v<_fn, Sender, Receiver>>,
             Sender, Receiver> {
       return _impl<is_tag_invocable_v<_fn, Sender, Receiver>>{}(
-          (Sender &&) s,
-          (Receiver &&) r);
+          std::move(s),
+          std::move(r));
     }
   } connect{};
 
@@ -86,9 +86,9 @@ namespace _connect {
   struct _fn::_impl<false> {
     template <typename Sender, typename Receiver>
     auto operator()(Sender&& s, Receiver&& r) const
-        noexcept(noexcept(((Sender &&) s).connect((Receiver &&) r)))
-        -> decltype(((Sender &&) s).connect((Receiver &&) r)) {
-      return ((Sender &&) s).connect((Receiver &&) r);
+        noexcept(noexcept(std::move(s).connect(std::move(r))))
+        -> decltype(std::move(s).connect(std::move(r))) {
+      return std::move(s).connect(std::move(r));
     }
   };
 } // namespace _connect

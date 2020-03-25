@@ -63,13 +63,13 @@ struct sender_task {
           return false;
         }
         void await_suspend(coro::coroutine_handle<>) {
-          ((Func &&) func_)();
+          std::move(func_)();
         }
         [[noreturn]] void await_resume() noexcept {
           std::terminate();
         }
       };
-      return awaiter{(Func &&) func};
+      return awaiter{std::move(func)};
     }
 
     template <typename Func>
@@ -132,7 +132,7 @@ struct _sender<Awaitable>::type {
           std::exception_ptr ex;
           try {
             if constexpr (std::is_void_v<result_type>) {
-              co_await(Awaitable &&) awaitable;
+              co_await std::move(awaitable);
               co_yield[&] {
                 unifex::set_value(std::move(receiver));
               };
@@ -148,9 +148,9 @@ struct _sender<Awaitable>::type {
               co_yield [&](result_type&& result) {
                     return [&] {
                       unifex::set_value(
-                          std::move(receiver), (result_type &&) result);
+                          std::move(receiver), std::move(result));
                     };
-                  }(co_await (Awaitable &&) awaitable);
+                  }(co_await std::move(awaitable));
             }
           } catch (...) {
             ex = std::current_exception();
@@ -158,7 +158,7 @@ struct _sender<Awaitable>::type {
           co_yield[&] {
             unifex::set_error(std::move(receiver), std::move(ex));
           };
-        }((Awaitable &&) awaitable_, (Receiver &&) receiver);
+        }(std::move(awaitable_), std::move(receiver));
   }
 };
 } // namespace _await
@@ -167,7 +167,7 @@ namespace _await_cpo {
   inline constexpr struct _fn {
     template <typename Awaitable>
     auto operator()(Awaitable &&awaitable) const -> _await::sender<Awaitable> {
-      return _await::sender<Awaitable>{(Awaitable &&) awaitable};
+      return _await::sender<Awaitable>{std::move(awaitable)};
     }
   } awaitable_sender{};
 } // namespace _await_cpo

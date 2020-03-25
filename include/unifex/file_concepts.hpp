@@ -38,7 +38,7 @@ inline constexpr struct async_read_some_at_cpo {
               typename AsyncFile::offset_t,
               BufferSequence> {
     return unifex::tag_invoke(
-        *this, file, offset, (BufferSequence &&) bufferSequence);
+        *this, file, offset, std::move(bufferSequence));
   }
 } async_read_some_at{};
 
@@ -59,7 +59,7 @@ inline constexpr struct async_write_some_at_cpo {
               typename AsyncFile::offset_t,
               BufferSequence> {
     return unifex::tag_invoke(
-        *this, file, offset, (BufferSequence &&) bufferSequence);
+        *this, file, offset, std::move(bufferSequence));
   }
 } async_write_some_at{};
 
@@ -74,7 +74,7 @@ inline constexpr struct open_file_read_only_cpo {
               open_file_read_only_cpo,
               Executor,
               const filesystem::path&> {
-    return unifex::tag_invoke(*this, (Executor &&) executor, path);
+    return unifex::tag_invoke(*this, std::move(executor), path);
   }
 } open_file_read_only{};
 
@@ -89,7 +89,7 @@ inline constexpr struct open_file_write_only_cpo {
               open_file_write_only_cpo,
               Executor,
               const filesystem::path&> {
-    return unifex::tag_invoke(*this, (Executor &&) executor, path);
+    return unifex::tag_invoke(*this, std::move(executor), path);
   }
 } open_file_write_only{};
 
@@ -104,7 +104,7 @@ inline constexpr struct open_file_read_write_cpo {
               open_file_read_write_cpo,
               Executor,
               const filesystem::path&> {
-    return unifex::tag_invoke(*this, (Executor &&) executor, path);
+    return unifex::tag_invoke(*this, std::move(executor), path);
   }
 } open_file_read_write{};
 } // namespace _filesystem

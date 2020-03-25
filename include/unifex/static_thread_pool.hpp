@@ -67,13 +67,13 @@ namespace _static_thread_pool {
       private:
         template<typename Receiver>
         operation<Receiver> make_operation_(Receiver&& r) const {
-          return operation<Receiver>{pool_, (Receiver &&) r};
+          return operation<Receiver>{pool_, std::move(r)};
         }
 
         template <typename Receiver>
         friend operation<Receiver>
         tag_invoke(tag_t<connect>, schedule_sender s, Receiver&& r) {
-          return s.make_operation_((Receiver &&) r);
+          return s.make_operation_(std::move(r));
         }
 
         friend class context::scheduler;
@@ -139,17 +139,17 @@ namespace _static_thread_pool {
 
     explicit type(context& pool, Receiver&& r)
       : pool_(pool)
-      , receiver_((Receiver &&) r) {
+      , receiver_(std::move(r)) {
       this->execute = [](task_base* t) noexcept {
         auto& op = *static_cast<type*>(t);
         if constexpr (!is_stop_never_possible_v<
                           stop_token_type_t<Receiver>>) {
           if (get_stop_token(op.receiver_).stop_requested()) {
-            unifex::set_done((Receiver &&) op.receiver_);
+            unifex::set_done(std::move(op.receiver_));
             return;
           }
         }
-        unifex::set_value((Receiver &&) op.receiver_);
+        unifex::set_value(std::move(op.receiver_));
       };
     }
 

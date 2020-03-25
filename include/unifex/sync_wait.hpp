@@ -67,7 +67,7 @@ struct _receiver {
     void set_value(Values&&... values) && noexcept {
       std::lock_guard lock{ promise_.mutex_ };
       try {
-        promise_.value_.construct((Values&&)values...);
+        promise_.value_.construct(std::move(values)...);
         promise_.state_ = promise<T>::state::value;
       }
       catch (...) {
@@ -86,7 +86,7 @@ struct _receiver {
 
     template <typename Error>
     void set_error(Error&& e) && noexcept {
-      std::move(*this).set_error(std::make_exception_ptr((Error&&)e));
+      std::move(*this).set_error(std::make_exception_ptr(std::move(e)));
     }
 
     void set_done() && noexcept {
@@ -137,7 +137,7 @@ struct _thread_unsafe_receiver {
     template <typename... Values>
     void set_value(Values&&... values) && noexcept {
       try {
-        promise_.value_.construct((Values&&)values...);
+        promise_.value_.construct(std::move(values)...);
         promise_.state_ = thread_unsafe_promise<T>::state::value;
       }
       catch (...) {
@@ -153,7 +153,7 @@ struct _thread_unsafe_receiver {
 
     template <typename Error>
     void set_error(Error&& e) && noexcept {
-      std::move(*this).set_error(std::make_exception_ptr((Error&&)e));
+      std::move(*this).set_error(std::make_exception_ptr(std::move(e)));
     }
 
     void set_done() && noexcept {
@@ -187,9 +187,9 @@ namespace _sync_wait_cpo {
         promise_t promise;
 
         auto operation = connect(
-          (Sender&&)sender,
+          std::move(sender),
           _sync_wait::thread_unsafe_receiver<Result, StopToken&&>{
-            promise, (StopToken&&)stopToken});
+            promise, std::move(stopToken)});
 
         start(operation);
 
@@ -211,9 +211,9 @@ namespace _sync_wait_cpo {
 
         // Store state for the operation on the stack.
         auto operation = connect(
-            ((Sender &&) sender),
+            std::move(sender),
             _sync_wait::receiver<Result, StopToken&&>{
-              promise, (StopToken&&)stopToken});
+              promise, std::move(stopToken)});
 
         start(operation);
 
@@ -245,7 +245,7 @@ namespace _sync_wait_r_cpo {
     decltype(auto) operator()(Sender&& sender, StopToken&& stopToken = {}) const {
       return sync_wait.operator()<
         Sender, StopToken, non_void_t<wrap_reference_t<decay_rvalue_t<Result>>>>(
-          (Sender&&)sender, (StopToken&&)stopToken);
+          std::move(sender), std::move(stopToken));
     }
   };
 } // namespace _sync_wait_r_cpo

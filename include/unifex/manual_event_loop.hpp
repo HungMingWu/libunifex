@@ -47,7 +47,7 @@ class _op<Receiver>::type final : task_base {
  public:
   template <typename Receiver2>
   explicit type(Receiver2&& receiver, context* loop)
-    : receiver_((Receiver2 &&) receiver), loop_(loop) {}
+    : receiver_(std::move(receiver)), loop_(loop) {}
 
   void start() noexcept;
 
@@ -91,7 +91,7 @@ class context {
 
       template <typename Receiver>
       operation<Receiver> connect(Receiver&& receiver) && {
-        return operation<Receiver>{(Receiver &&) receiver, loop_};
+        return operation<Receiver>{std::move(receiver), loop_};
       }
 
     private:
