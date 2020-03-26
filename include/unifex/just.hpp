@@ -29,79 +29,74 @@ namespace _just {
 
 template <typename Receiver, typename... Values>
 struct _op {
-  struct type;
+  struct type {
+    UNIFEX_NO_UNIQUE_ADDRESS std::tuple<Values...> values_;
+    UNIFEX_NO_UNIQUE_ADDRESS Receiver receiver_;
+
+    void start() & noexcept {
+      try {
+        std::apply(
+            [&](Values&&... values) {
+              unifex::set_value(std::move(receiver_), std::move(values)...);
+            },
+            std::move(values_));
+      } catch (...) {
+        unifex::set_error(std::move(receiver_), std::current_exception());
+      }
+    }
+  };
 };
 template <typename Receiver, typename... Values>
 using operation = typename _op<std::remove_cvref_t<Receiver>, Values...>::type;
 
-template <typename Receiver, typename... Values>
-struct _op<Receiver, Values...>::type {
-  UNIFEX_NO_UNIQUE_ADDRESS std::tuple<Values...> values_;
-  UNIFEX_NO_UNIQUE_ADDRESS Receiver receiver_;
-
-  void start() & noexcept {
-    try {
-      std::apply(
-          [&](Values&&... values) {
-            unifex::set_value(std::move(receiver_), std::move(values)...);
-          },
-          std::move(values_));
-    } catch (...) {
-      unifex::set_error(std::move(receiver_), std::current_exception());
-    }
-  }
-};
-
 template <typename... Values>
 struct _sender {
-  class type;
+  class type {
+    UNIFEX_NO_UNIQUE_ADDRESS std::tuple<Values...> values_;
+
+    public:
+    template <
+        template <typename...> class Variant,
+        template <typename...> class Tuple>
+    using value_types = Variant<Tuple<Values...>>;
+
+    template <template <typename...> class Variant>
+    using error_types = Variant<std::exception_ptr>;
+
+    template <typename... Values2>
+    explicit type(Values2&&... values)
+      noexcept(std::is_nothrow_constructible_v<std::tuple<Values...>, Values2...>)
+      : values_(std::move(values)...) {}
+
+    template <typename Receiver>
+    auto connect(Receiver&& r) &&
+      noexcept(std::is_nothrow_move_constructible_v<std::tuple<Values...>>)
+      -> operation<Receiver, Values...> {
+      return {std::move(values_), std::move(r)};
+    }
+
+    template <typename Receiver>
+    auto connect(Receiver&& r) &
+      noexcept(std::is_nothrow_constructible_v<std::tuple<Values...>, std::tuple<Values...>&>)
+      -> operation<Receiver, Values...> {
+      return {values_, std::move(r)};
+    }
+
+    template <typename Receiver>
+    auto connect(Receiver&& r) const &
+      noexcept(std::is_nothrow_copy_constructible_v<std::tuple<Values...>>)
+      -> operation<Receiver, Values...> {
+      return {values_, std::move(r)};
+    }
+
+    friend constexpr blocking_kind tag_invoke(tag_t<blocking>, const type&) noexcept {
+      return blocking_kind::always_inline;
+    }
+  };
 };
 template <typename... Values>
 using sender = typename _sender<std::decay_t<Values>...>::type;
 
-template <typename... Values>
-class _sender<Values...>::type {
-  UNIFEX_NO_UNIQUE_ADDRESS std::tuple<Values...> values_;
-
-  public:
-  template <
-      template <typename...> class Variant,
-      template <typename...> class Tuple>
-  using value_types = Variant<Tuple<Values...>>;
-
-  template <template <typename...> class Variant>
-  using error_types = Variant<std::exception_ptr>;
-
-  template <typename... Values2>
-  explicit type(Values2&&... values)
-    noexcept(std::is_nothrow_constructible_v<std::tuple<Values...>, Values2...>)
-    : values_(std::move(values)...) {}
-
-  template <typename Receiver>
-  auto connect(Receiver&& r) &&
-    noexcept(std::is_nothrow_move_constructible_v<std::tuple<Values...>>)
-    -> operation<Receiver, Values...> {
-    return {std::move(values_), std::move(r)};
-  }
-
-  template <typename Receiver>
-  auto connect(Receiver&& r) &
-    noexcept(std::is_nothrow_constructible_v<std::tuple<Values...>, std::tuple<Values...>&>)
-    -> operation<Receiver, Values...> {
-    return {values_, std::move(r)};
-  }
-
-  template <typename Receiver>
-  auto connect(Receiver&& r) const &
-    noexcept(std::is_nothrow_copy_constructible_v<std::tuple<Values...>>)
-    -> operation<Receiver, Values...> {
-    return {values_, std::move(r)};
-  }
-
-  friend constexpr blocking_kind tag_invoke(tag_t<blocking>, const type&) noexcept {
-    return blocking_kind::always_inline;
-  }
-};
 } // namespace _just
 
 namespace _just_cpo {

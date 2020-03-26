@@ -55,7 +55,119 @@ namespace unifex
         typename Receiver,
         typename... Values>
     struct _value_receiver {
-      class type;
+      class type final {
+        using value_receiver = type;
+        using operation_type = operation<SourceSender, CompletionSender, Receiver>;
+
+      public:
+        explicit type(operation_type* op) noexcept : op_(op) {}
+
+        type(type&& other) noexcept
+        : op_(std::exchange(other.op_, nullptr)) {}
+
+        void set_value() && noexcept {
+          auto* op = op_;
+
+          auto& completionOp = op->completionValueOp_.template get<
+              operation_t<CompletionSender, value_receiver>>();
+          completionOp.destruct();
+
+          auto& valueStorage = op->value_.template get<std::tuple<Values...>>();
+          try {
+            // Move the stored values onto the stack so that we can
+            // destroy the ones stored in the operation-state. This
+            // prevents the need to add a big switch to the operation
+            // state destructor to determine which value-tuple type
+            // destructor needs to be run.
+            auto values = [&]() -> std::tuple<Values...> {
+              scope_guard g{[&]() noexcept {
+                valueStorage.destruct();
+              }};
+              return std::move(valueStorage.get());
+            }
+            ();
+
+            std::apply(
+                [&](Values&&... values) {
+                  unifex::set_value(
+                      std::move(op->receiver_),
+                      std::move(values)...);
+                },
+                std::move(values));
+          } catch (...) {
+            unifex::set_error(
+                std::move(op->receiver_), std::current_exception());
+          }
+        }
+
+        template <typename Error>
+        void set_error(Error&& error) && noexcept {
+          auto* op = op_;
+
+          auto& completionOp = op->completionValueOp_.template get<
+              operation_t<CompletionSender, value_receiver>>();
+          completionOp.destruct();
+
+          // Discard the stored value.
+          auto& valueStorage = op->value_.template get<std::tuple<Values...>>();
+          valueStorage.destruct();
+
+          unifex::set_error(
+              std::move(op->receiver_),
+              std::move(error));
+        }
+
+        void set_done() && noexcept {
+          auto* op = op_;
+
+          auto& completionOp = op->completionValueOp_.template get<
+              operation_t<CompletionSender, value_receiver>>();
+          completionOp.destruct();
+
+          // Discard the stored value.
+          auto& valueStorage = op->value_.template get<std::tuple<Values...>>();
+          valueStorage.destruct();
+
+          unifex::set_done(std::move(op->receiver_));
+        }
+
+        template <
+            typename CPO,
+            typename R,
+            typename... Args,
+            std::enable_if_t<
+              std::conjunction_v<
+                std::negation<is_receiver_cpo<CPO>>,
+                std::is_same<R, value_receiver>,
+                is_callable<CPO, const Receiver&, Args...>>, int> = 0>
+        friend auto tag_invoke(
+            CPO cpo,
+            const R& r,
+            Args&&... args) noexcept(is_nothrow_callable_v<
+                                            CPO,
+                                            const Receiver&,
+                                            Args...>)
+            -> callable_result_t<CPO, const Receiver&, Args...> {
+          return std::move(cpo)(
+              r.get_receiver(),
+              std::move(args)...);
+        }
+
+        template <typename Func>
+        friend void tag_invoke(
+            tag_t<visit_continuations>,
+            const value_receiver& r,
+            Func&& func) {
+          std::invoke(func, r.get_receiver());
+        }
+
+      private:
+        const Receiver& get_receiver() const noexcept {
+          return op_->receiver_;
+        }
+
+        operation_type* op_;
+      };
     };
     template <
         typename SourceSender,
@@ -73,128 +185,109 @@ namespace unifex
         typename SourceSender,
         typename CompletionSender,
         typename Receiver,
-        typename... Values>
-    class _value_receiver<SourceSender, CompletionSender, Receiver, Values...>::type final {
-      using value_receiver = type;
-      using operation_type = operation<SourceSender, CompletionSender, Receiver>;
-
-    public:
-      explicit type(operation_type* op) noexcept : op_(op) {}
-
-      type(type&& other) noexcept
-      : op_(std::exchange(other.op_, nullptr)) {}
-
-      void set_value() && noexcept {
-        auto* op = op_;
-
-        auto& completionOp = op->completionValueOp_.template get<
-            operation_t<CompletionSender, value_receiver>>();
-        completionOp.destruct();
-
-        auto& valueStorage = op->value_.template get<std::tuple<Values...>>();
-        try {
-          // Move the stored values onto the stack so that we can
-          // destroy the ones stored in the operation-state. This
-          // prevents the need to add a big switch to the operation
-          // state destructor to determine which value-tuple type
-          // destructor needs to be run.
-          auto values = [&]() -> std::tuple<Values...> {
-            scope_guard g{[&]() noexcept {
-              valueStorage.destruct();
-            }};
-            return std::move(valueStorage.get());
-          }
-          ();
-
-          std::apply(
-              [&](Values&&... values) {
-                unifex::set_value(
-                    std::move(op->receiver_),
-                    std::move(values)...);
-              },
-              std::move(values));
-        } catch (...) {
-          unifex::set_error(
-              std::move(op->receiver_), std::current_exception());
-        }
-      }
-
-      template <typename Error>
-      void set_error(Error&& error) && noexcept {
-        auto* op = op_;
-
-        auto& completionOp = op->completionValueOp_.template get<
-            operation_t<CompletionSender, value_receiver>>();
-        completionOp.destruct();
-
-        // Discard the stored value.
-        auto& valueStorage = op->value_.template get<std::tuple<Values...>>();
-        valueStorage.destruct();
-
-        unifex::set_error(
-            std::move(op->receiver_),
-            std::move(error));
-      }
-
-      void set_done() && noexcept {
-        auto* op = op_;
-
-        auto& completionOp = op->completionValueOp_.template get<
-            operation_t<CompletionSender, value_receiver>>();
-        completionOp.destruct();
-
-        // Discard the stored value.
-        auto& valueStorage = op->value_.template get<std::tuple<Values...>>();
-        valueStorage.destruct();
-
-        unifex::set_done(std::move(op->receiver_));
-      }
-
-      template <
-          typename CPO,
-          typename R,
-          typename... Args,
-          std::enable_if_t<
-            std::conjunction_v<
-              std::negation<is_receiver_cpo<CPO>>,
-              std::is_same<R, value_receiver>,
-              is_callable<CPO, const Receiver&, Args...>>, int> = 0>
-      friend auto tag_invoke(
-          CPO cpo,
-          const R& r,
-          Args&&... args) noexcept(is_nothrow_callable_v<
-                                          CPO,
-                                          const Receiver&,
-                                          Args...>)
-          -> callable_result_t<CPO, const Receiver&, Args...> {
-        return std::move(cpo)(
-            r.get_receiver(),
-            std::move(args)...);
-      }
-
-      template <typename Func>
-      friend void tag_invoke(
-          tag_t<visit_continuations>,
-          const value_receiver& r,
-          Func&& func) {
-        std::invoke(func, r.get_receiver());
-      }
-
-    private:
-      const Receiver& get_receiver() const noexcept {
-        return op_->receiver_;
-      }
-
-      operation_type* op_;
-    };
-
-    template <
-        typename SourceSender,
-        typename CompletionSender,
-        typename Receiver,
         typename Error>
     struct _error_receiver {
-      class type;
+      class type final {
+        using error_receiver = type;
+        using operation_type = operation<SourceSender, CompletionSender, Receiver>;
+
+      public:
+        explicit type(operation_type* op) noexcept : op_(op) {}
+
+        type(type&& other) noexcept
+          : op_(std::exchange(other.op_, nullptr)) {}
+
+        void set_value() && noexcept {
+          auto* op = op_;
+
+          auto& completionOp = op->completionErrorOp_.template get<
+              operation_t<CompletionSender, error_receiver>>();
+          completionOp.destruct();
+
+          auto& errorStorage = op->error_.template get<Error>();
+          Error errorCopy = std::move(errorStorage.get());
+          errorStorage.destruct();
+
+          unifex::set_error(
+              std::move(op->receiver_),
+              std::move(errorCopy));
+        }
+
+        template <
+            typename OtherError,
+            std::enable_if_t<
+                is_callable_v<
+                    decltype(unifex::set_error),
+                    Receiver,
+                    OtherError>,
+                int> = 0>
+        void set_error(OtherError otherError) && noexcept {
+          auto* op = op_;
+
+          auto& completionOp = op->completionErrorOp_.template get<
+              operation_t<CompletionSender, error_receiver>>();
+          completionOp.destruct();
+
+          // Discard existing stored error from source-sender.
+          auto& errorStorage = op->error_.template get<Error>();
+          errorStorage.destruct();
+
+          unifex::set_error(
+              std::move(op->receiver_),
+              std::move(otherError));
+        }
+
+        void set_done() && noexcept {
+          auto* op = op_;
+
+          auto& completionOp = op->completionErrorOp_.template get<
+              operation_t<CompletionSender, error_receiver>>();
+          completionOp.destruct();
+
+          // Discard existing stored error from source-sender.
+          auto& errorStorage = op->error_.template get<Error>();
+          errorStorage.destruct();
+
+          unifex::set_done(std::move(op->receiver_));
+        }
+
+        template <
+            typename CPO,
+            typename R,
+            typename... Args,
+            std::enable_if_t<
+              std::conjunction_v<
+                  std::negation<is_receiver_cpo<CPO>>,
+                  std::is_same<R, error_receiver>,
+                  is_callable<CPO, const Receiver&, Args...>>, int> = 0>
+        friend auto tag_invoke(
+            CPO cpo,
+            const R& r,
+            Args&&... args) noexcept(is_nothrow_callable_v<
+                                            CPO,
+                                            const Receiver&,
+                                            Args...>)
+            -> callable_result_t<CPO, const Receiver&, Args...> {
+          return std::move(cpo)(
+              r.get_receiver(),
+              std::move(args)...);
+        }
+
+        template <typename Func>
+        friend void tag_invoke(
+            tag_t<visit_continuations>,
+            const error_receiver& r,
+            Func&& func) {
+          std::invoke(func, r.get_receiver());
+        }
+
+      private:
+        const Receiver& get_receiver() const noexcept {
+          return op_->receiver_;
+        }
+
+        operation_type* op_;
+      };
     };
     template <
         typename SourceSender,
@@ -208,340 +301,227 @@ namespace unifex
         Receiver,
         std::decay_t<Error>>::type;
 
-    template <
-        typename SourceSender,
-        typename CompletionSender,
-        typename Receiver,
-        typename Error>
-    class _error_receiver<SourceSender, CompletionSender, Receiver, Error>::type final {
-      using error_receiver = type;
-      using operation_type = operation<SourceSender, CompletionSender, Receiver>;
-
-    public:
-      explicit type(operation_type* op) noexcept : op_(op) {}
-
-      type(type&& other) noexcept
-        : op_(std::exchange(other.op_, nullptr)) {}
-
-      void set_value() && noexcept {
-        auto* op = op_;
-
-        auto& completionOp = op->completionErrorOp_.template get<
-            operation_t<CompletionSender, error_receiver>>();
-        completionOp.destruct();
-
-        auto& errorStorage = op->error_.template get<Error>();
-        Error errorCopy = std::move(errorStorage.get());
-        errorStorage.destruct();
-
-        unifex::set_error(
-            std::move(op->receiver_),
-            std::move(errorCopy));
-      }
-
-      template <
-          typename OtherError,
-          std::enable_if_t<
-              is_callable_v<
-                  decltype(unifex::set_error),
-                  Receiver,
-                  OtherError>,
-              int> = 0>
-      void set_error(OtherError otherError) && noexcept {
-        auto* op = op_;
-
-        auto& completionOp = op->completionErrorOp_.template get<
-            operation_t<CompletionSender, error_receiver>>();
-        completionOp.destruct();
-
-        // Discard existing stored error from source-sender.
-        auto& errorStorage = op->error_.template get<Error>();
-        errorStorage.destruct();
-
-        unifex::set_error(
-            std::move(op->receiver_),
-            std::move(otherError));
-      }
-
-      void set_done() && noexcept {
-        auto* op = op_;
-
-        auto& completionOp = op->completionErrorOp_.template get<
-            operation_t<CompletionSender, error_receiver>>();
-        completionOp.destruct();
-
-        // Discard existing stored error from source-sender.
-        auto& errorStorage = op->error_.template get<Error>();
-        errorStorage.destruct();
-
-        unifex::set_done(std::move(op->receiver_));
-      }
-
-      template <
-          typename CPO,
-          typename R,
-          typename... Args,
-          std::enable_if_t<
-            std::conjunction_v<
-                std::negation<is_receiver_cpo<CPO>>,
-                std::is_same<R, error_receiver>,
-                is_callable<CPO, const Receiver&, Args...>>, int> = 0>
-      friend auto tag_invoke(
-          CPO cpo,
-          const R& r,
-          Args&&... args) noexcept(is_nothrow_callable_v<
-                                          CPO,
-                                          const Receiver&,
-                                          Args...>)
-          -> callable_result_t<CPO, const Receiver&, Args...> {
-        return std::move(cpo)(
-            r.get_receiver(),
-            std::move(args)...);
-      }
-
-      template <typename Func>
-      friend void tag_invoke(
-          tag_t<visit_continuations>,
-          const error_receiver& r,
-          Func&& func) {
-        std::invoke(func, r.get_receiver());
-      }
-
-    private:
-      const Receiver& get_receiver() const noexcept {
-        return op_->receiver_;
-      }
-
-      operation_type* op_;
-    };
-
     template <typename SourceSender, typename CompletionSender, typename Receiver>
     struct _done_receiver {
-      class type;
+      class type final {
+        using done_receiver = type;
+        using operation_type = operation<SourceSender, CompletionSender, Receiver>;
+
+      public:
+        explicit type(operation_type* op) noexcept : op_(op) {}
+
+        type(type&& other) noexcept
+          : op_(std::exchange(other.op_, nullptr)) {}
+
+        void set_value() && noexcept {
+          auto* op = op_;
+          op->completionDoneOp_.destruct();
+          unifex::set_done(std::move(op->receiver_));
+        }
+
+        template <
+            typename Error,
+            std::enable_if_t<
+                is_callable_v<decltype(unifex::set_error), Receiver, Error>,
+                int> = 0>
+        void set_error(Error&& error) && noexcept {
+          auto* op = op_;
+          op->completionDoneOp_.destruct();
+          unifex::set_error(
+              std::move(op->receiver_),
+              std::move(error));
+        }
+
+        void set_done() && noexcept {
+          auto* op = op_;
+          op->completionDoneOp_.destruct();
+          unifex::set_done(std::move(op->receiver_));
+        }
+
+        template <
+            typename CPO,
+            typename R,
+            typename... Args,
+            std::enable_if_t<
+              std::conjunction_v<
+               std::negation<is_receiver_cpo<CPO>>,
+               std::is_same<R, done_receiver>,
+               is_callable<CPO, const Receiver&, Args...>>, int> = 0>
+        friend auto tag_invoke(
+            CPO cpo,
+            const R& r,
+            Args&&... args) noexcept(is_nothrow_callable_v<
+                                            CPO,
+                                            const Receiver&,
+                                            Args...>)
+            -> callable_result_t<CPO, const Receiver&, Args...> {
+          return std::move(cpo)(
+              r.get_receiver(),
+              std::move(args)...);
+        }
+
+        template <typename Func>
+        friend void tag_invoke(
+            tag_t<visit_continuations>,
+            const done_receiver& r,
+            Func&& func) {
+          std::invoke(func, r.get_receiver());
+        }
+
+      private:
+        const Receiver& get_receiver() const noexcept {
+          return op_->receiver_;
+        }
+
+        operation_type* op_;
+      };
     };
     template <typename SourceSender, typename CompletionSender, typename Receiver>
     using done_receiver =
         typename _done_receiver<SourceSender, CompletionSender, Receiver>::type;
 
     template <typename SourceSender, typename CompletionSender, typename Receiver>
-    class _done_receiver<SourceSender, CompletionSender, Receiver>::type final {
-      using done_receiver = type;
-      using operation_type = operation<SourceSender, CompletionSender, Receiver>;
-
-    public:
-      explicit type(operation_type* op) noexcept : op_(op) {}
-
-      type(type&& other) noexcept
-        : op_(std::exchange(other.op_, nullptr)) {}
-
-      void set_value() && noexcept {
-        auto* op = op_;
-        op->completionDoneOp_.destruct();
-        unifex::set_done(std::move(op->receiver_));
-      }
-
-      template <
-          typename Error,
-          std::enable_if_t<
-              is_callable_v<decltype(unifex::set_error), Receiver, Error>,
-              int> = 0>
-      void set_error(Error&& error) && noexcept {
-        auto* op = op_;
-        op->completionDoneOp_.destruct();
-        unifex::set_error(
-            std::move(op->receiver_),
-            std::move(error));
-      }
-
-      void set_done() && noexcept {
-        auto* op = op_;
-        op->completionDoneOp_.destruct();
-        unifex::set_done(std::move(op->receiver_));
-      }
-
-      template <
-          typename CPO,
-          typename R,
-          typename... Args,
-          std::enable_if_t<
-            std::conjunction_v<
-             std::negation<is_receiver_cpo<CPO>>,
-             std::is_same<R, done_receiver>,
-             is_callable<CPO, const Receiver&, Args...>>, int> = 0>
-      friend auto tag_invoke(
-          CPO cpo,
-          const R& r,
-          Args&&... args) noexcept(is_nothrow_callable_v<
-                                          CPO,
-                                          const Receiver&,
-                                          Args...>)
-          -> callable_result_t<CPO, const Receiver&, Args...> {
-        return std::move(cpo)(
-            r.get_receiver(),
-            std::move(args)...);
-      }
-
-      template <typename Func>
-      friend void tag_invoke(
-          tag_t<visit_continuations>,
-          const done_receiver& r,
-          Func&& func) {
-        std::invoke(func, r.get_receiver());
-      }
-
-    private:
-      const Receiver& get_receiver() const noexcept {
-        return op_->receiver_;
-      }
-
-      operation_type* op_;
-    };
-
-    template <typename SourceSender, typename CompletionSender, typename Receiver>
     struct _receiver {
-      class type;
+      class type final {
+        using receiver = type;
+        using operation_type = operation<SourceSender, CompletionSender, Receiver>;
+
+      public:
+        explicit type(operation_type* op) noexcept : op_(op) {}
+
+        type(type&& other) noexcept
+          : op_(std::exchange(other.op_, nullptr)) {}
+
+        template <
+            typename... Values,
+            std::enable_if_t<
+                is_callable_v<
+                    decltype(unifex::set_value),
+                    Receiver,
+                    std::decay_t<Values>...>,
+                int> = 0>
+        void set_value(Values&&... values) && noexcept {
+          auto* op = op_;
+          auto& valueStorage =
+              op->value_.template get<std::tuple<std::decay_t<Values>...>>();
+          try {
+            valueStorage.construct(std::move(values)...);
+          } catch (...) {
+            std::move(*this).set_error(std::current_exception());
+            return;
+          }
+
+          op->sourceOp_.destruct();
+
+          try {
+            using value_receiver = value_receiver<
+                SourceSender,
+                CompletionSender,
+                Receiver,
+                Values...>;
+            auto& completionOp =
+                op->completionValueOp_
+                    .template get<operation_t<CompletionSender, value_receiver>>()
+                    .construct_from([&] {
+                      return unifex::connect(
+                          std::move(op->completionSender_),
+                          value_receiver{op});
+                    });
+            unifex::start(completionOp);
+          } catch (...) {
+            valueStorage.destruct();
+            unifex::set_error(
+                std::move(op->receiver_), std::current_exception());
+          }
+        }
+
+        template <typename Error>
+        void set_error(Error&& error) && noexcept {
+          static_assert(
+              std::is_nothrow_constructible_v<std::decay_t<Error>, Error>);
+
+          auto* op = op_;
+          auto& errorStorage = op->error_.template get<std::decay_t<Error>>();
+          errorStorage.construct(std::move(error));
+
+          op->sourceOp_.destruct();
+
+          try {
+            using error_receiver_t = error_receiver<
+                SourceSender,
+                CompletionSender,
+                Receiver,
+                Error>;
+            auto& completionOp =
+                op->completionErrorOp_
+                    .template get<operation_t<CompletionSender, error_receiver_t>>()
+                    .construct_from([&] {
+                      return unifex::connect(
+                          std::move(op->completionSender_),
+                          error_receiver_t{op});
+                    });
+            unifex::start(completionOp);
+          } catch (...) {
+            errorStorage.destruct();
+            unifex::set_error(
+                std::move(op->receiver_), std::current_exception());
+          }
+        }
+
+        void set_done() && noexcept {
+          auto* op = op_;
+
+          op->sourceOp_.destruct();
+
+          try {
+            using done_receiver =
+                done_receiver<SourceSender, CompletionSender, Receiver>;
+            auto& completionOp = op->completionDoneOp_.construct_from([&] {
+              return unifex::connect(
+                  std::move(op->completionSender_),
+                  done_receiver{op});
+            });
+            unifex::start(completionOp);
+          } catch (...) {
+            unifex::set_error(
+                std::move(op->receiver_), std::current_exception());
+          }
+        }
+
+        template <
+            typename CPO,
+            typename R,
+            typename... Args,
+            std::enable_if_t<
+              std::conjunction_v<
+                std::negation<is_receiver_cpo<CPO>>,
+                std::is_same<R, receiver>,
+                is_callable<CPO, const Receiver&, Args...>>, int> = 0>
+        friend auto
+        tag_invoke(CPO cpo, const R& r, Args&&... args) noexcept(
+            is_nothrow_callable_v<CPO, const Receiver&, Args...>)
+            -> callable_result_t<CPO, const Receiver&, Args...> {
+          return std::move(cpo)(
+              r.get_receiver(),
+              std::move(args)...);
+        }
+
+        template <typename Func>
+        friend void tag_invoke(
+            tag_t<visit_continuations>, const receiver& r, Func&& func) {
+          std::invoke(func, r.get_receiver());
+        }
+
+      private:
+        const Receiver& get_receiver() const noexcept {
+          return op_->receiver_;
+        }
+
+        operation_type* op_;
+      };
     };
     template <typename SourceSender, typename CompletionSender, typename Receiver>
     using receiver = typename _receiver<SourceSender, CompletionSender, Receiver>::type;
-
-    template <typename SourceSender, typename CompletionSender, typename Receiver>
-    class _receiver<SourceSender, CompletionSender, Receiver>::type final {
-      using receiver = type;
-      using operation_type = operation<SourceSender, CompletionSender, Receiver>;
-
-    public:
-      explicit type(operation_type* op) noexcept : op_(op) {}
-
-      type(type&& other) noexcept
-        : op_(std::exchange(other.op_, nullptr)) {}
-
-      template <
-          typename... Values,
-          std::enable_if_t<
-              is_callable_v<
-                  decltype(unifex::set_value),
-                  Receiver,
-                  std::decay_t<Values>...>,
-              int> = 0>
-      void set_value(Values&&... values) && noexcept {
-        auto* op = op_;
-        auto& valueStorage =
-            op->value_.template get<std::tuple<std::decay_t<Values>...>>();
-        try {
-          valueStorage.construct(std::move(values)...);
-        } catch (...) {
-          std::move(*this).set_error(std::current_exception());
-          return;
-        }
-
-        op->sourceOp_.destruct();
-
-        try {
-          using value_receiver = value_receiver<
-              SourceSender,
-              CompletionSender,
-              Receiver,
-              Values...>;
-          auto& completionOp =
-              op->completionValueOp_
-                  .template get<operation_t<CompletionSender, value_receiver>>()
-                  .construct_from([&] {
-                    return unifex::connect(
-                        std::move(op->completionSender_),
-                        value_receiver{op});
-                  });
-          unifex::start(completionOp);
-        } catch (...) {
-          valueStorage.destruct();
-          unifex::set_error(
-              std::move(op->receiver_), std::current_exception());
-        }
-      }
-
-      template <typename Error>
-      void set_error(Error&& error) && noexcept {
-        static_assert(
-            std::is_nothrow_constructible_v<std::decay_t<Error>, Error>);
-
-        auto* op = op_;
-        auto& errorStorage = op->error_.template get<std::decay_t<Error>>();
-        errorStorage.construct(std::move(error));
-
-        op->sourceOp_.destruct();
-
-        try {
-          using error_receiver_t = error_receiver<
-              SourceSender,
-              CompletionSender,
-              Receiver,
-              Error>;
-          auto& completionOp =
-              op->completionErrorOp_
-                  .template get<operation_t<CompletionSender, error_receiver_t>>()
-                  .construct_from([&] {
-                    return unifex::connect(
-                        std::move(op->completionSender_),
-                        error_receiver_t{op});
-                  });
-          unifex::start(completionOp);
-        } catch (...) {
-          errorStorage.destruct();
-          unifex::set_error(
-              std::move(op->receiver_), std::current_exception());
-        }
-      }
-
-      void set_done() && noexcept {
-        auto* op = op_;
-
-        op->sourceOp_.destruct();
-
-        try {
-          using done_receiver =
-              done_receiver<SourceSender, CompletionSender, Receiver>;
-          auto& completionOp = op->completionDoneOp_.construct_from([&] {
-            return unifex::connect(
-                std::move(op->completionSender_),
-                done_receiver{op});
-          });
-          unifex::start(completionOp);
-        } catch (...) {
-          unifex::set_error(
-              std::move(op->receiver_), std::current_exception());
-        }
-      }
-
-      template <
-          typename CPO,
-          typename R,
-          typename... Args,
-          std::enable_if_t<
-            std::conjunction_v<
-              std::negation<is_receiver_cpo<CPO>>,
-              std::is_same<R, receiver>,
-              is_callable<CPO, const Receiver&, Args...>>, int> = 0>
-      friend auto
-      tag_invoke(CPO cpo, const R& r, Args&&... args) noexcept(
-          is_nothrow_callable_v<CPO, const Receiver&, Args...>)
-          -> callable_result_t<CPO, const Receiver&, Args...> {
-        return std::move(cpo)(
-            r.get_receiver(),
-            std::move(args)...);
-      }
-
-      template <typename Func>
-      friend void tag_invoke(
-          tag_t<visit_continuations>, const receiver& r, Func&& func) {
-        std::invoke(func, r.get_receiver());
-      }
-
-    private:
-      const Receiver& get_receiver() const noexcept {
-        return op_->receiver_;
-      }
-
-      operation_type* op_;
-    };
 
     template <
         typename SourceSender,
@@ -662,81 +642,79 @@ namespace unifex
 
     template <typename SourceSender, typename CompletionSender>
     struct _sender {
-      class type;
+      class type {
+        using sender = type;
+      public:
+        template <
+            template <typename...> class Variant,
+            template <typename...> class Tuple>
+        using value_types = typename SourceSender::
+            template value_types<Variant, decayed_tuple<Tuple>::template apply>;
+
+        // This can produce any of the error_types of SourceSender, or of
+        // CompletionSender or an exception_ptr corresponding to an exception thrown
+        // by the copy/move of the value result.
+        // TODO: In theory we could eliminate exception_ptr in the case that the
+        // connect() operation and move/copy of values
+        template <template <typename...> class Variant>
+        using error_types = typename concat_type_lists_unique_t<
+            typename SourceSender::template error_types<
+                decayed_tuple<type_list>::template apply>,
+            typename CompletionSender::template error_types<
+                decayed_tuple<type_list>::template apply>,
+            type_list<std::exception_ptr>>::template apply<Variant>;
+
+        template <typename SourceSender2, typename CompletionSender2>
+        explicit type(
+            SourceSender2&& source, CompletionSender2&& completion)
+            noexcept(std::is_nothrow_constructible_v<SourceSender, SourceSender2> &&
+                std::is_nothrow_constructible_v<CompletionSender, CompletionSender2>)
+          : source_(std::move(source))
+          , completion_(std::move(completion)) {}
+
+        // TODO: Also constrain this method to check that the CompletionSender
+        // is connectable to any of the instantiations of done/value/error_receiver
+        // that could be created for each of the results that SourceSender might
+        // complete with. For now we just check done_receiver as an approximation.
+        template <
+            typename Receiver,
+            typename CPO,
+            typename S,
+            std::enable_if_t<
+                std::conjunction_v<
+                  std::is_same<CPO, tag_t<connect>>,
+                  std::is_same<S, sender>,
+                  is_connectable<
+                    SourceSender,
+                    receiver<
+                        SourceSender,
+                        CompletionSender,
+                        Receiver>>,
+                  is_connectable<
+                    CompletionSender,
+                    done_receiver<
+                        SourceSender,
+                        CompletionSender,
+                        Receiver>>>,
+                int> = 0>
+        friend auto tag_invoke(CPO, S&& s, Receiver&& r)
+            -> operation<SourceSender, CompletionSender, Receiver> {
+          return operation<SourceSender, CompletionSender, Receiver>{
+                  std::move(s.source_),
+                  std::move(s.completion_),
+                  std::move(r)};
+        }
+
+      private:
+        SourceSender source_;
+        CompletionSender completion_;
+      };
     };
     template <typename SourceSender, typename CompletionSender>
     using sender = typename _sender<
         std::remove_cvref_t<SourceSender>,
         std::remove_cvref_t<CompletionSender>>::type;
 
-    template <typename SourceSender, typename CompletionSender>
-    class _sender<SourceSender, CompletionSender>::type {
-      using sender = type;
-    public:
-      template <
-          template <typename...> class Variant,
-          template <typename...> class Tuple>
-      using value_types = typename SourceSender::
-          template value_types<Variant, decayed_tuple<Tuple>::template apply>;
-
-      // This can produce any of the error_types of SourceSender, or of
-      // CompletionSender or an exception_ptr corresponding to an exception thrown
-      // by the copy/move of the value result.
-      // TODO: In theory we could eliminate exception_ptr in the case that the
-      // connect() operation and move/copy of values
-      template <template <typename...> class Variant>
-      using error_types = typename concat_type_lists_unique_t<
-          typename SourceSender::template error_types<
-              decayed_tuple<type_list>::template apply>,
-          typename CompletionSender::template error_types<
-              decayed_tuple<type_list>::template apply>,
-          type_list<std::exception_ptr>>::template apply<Variant>;
-
-      template <typename SourceSender2, typename CompletionSender2>
-      explicit type(
-          SourceSender2&& source, CompletionSender2&& completion)
-          noexcept(std::is_nothrow_constructible_v<SourceSender, SourceSender2> &&
-              std::is_nothrow_constructible_v<CompletionSender, CompletionSender2>)
-        : source_(std::move(source))
-        , completion_(std::move(completion)) {}
-
-      // TODO: Also constrain this method to check that the CompletionSender
-      // is connectable to any of the instantiations of done/value/error_receiver
-      // that could be created for each of the results that SourceSender might
-      // complete with. For now we just check done_receiver as an approximation.
-      template <
-          typename Receiver,
-          typename CPO,
-          typename S,
-          std::enable_if_t<
-              std::conjunction_v<
-                std::is_same<CPO, tag_t<connect>>,
-                std::is_same<S, sender>,
-                is_connectable<
-                  SourceSender,
-                  receiver<
-                      SourceSender,
-                      CompletionSender,
-                      Receiver>>,
-                is_connectable<
-                  CompletionSender,
-                  done_receiver<
-                      SourceSender,
-                      CompletionSender,
-                      Receiver>>>,
-              int> = 0>
-      friend auto tag_invoke(CPO, S&& s, Receiver&& r)
-          -> operation<SourceSender, CompletionSender, Receiver> {
-        return operation<SourceSender, CompletionSender, Receiver>{
-                std::move(s.source_),
-                std::move(s.completion_),
-                std::move(r)};
-      }
-
-    private:
-      SourceSender source_;
-      CompletionSender completion_;
-    };
   }  // namespace _final
 
   namespace _final_cpo

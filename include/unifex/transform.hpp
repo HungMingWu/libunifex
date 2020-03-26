@@ -44,146 +44,141 @@ namespace detail {
 
 template <typename Receiver, typename Func>
 struct _receiver {
-  struct type;
+  struct type {
+    using receiver = type;
+    UNIFEX_NO_UNIQUE_ADDRESS Func func_;
+    UNIFEX_NO_UNIQUE_ADDRESS Receiver receiver_;
+
+    template <typename... Values>
+    void set_value(Values&&... values) && noexcept {
+      using result_type = std::invoke_result_t<Func, Values...>;
+      if constexpr (std::is_void_v<result_type>) {
+        if constexpr (noexcept(std::invoke(
+                          std::move(func_), std::move(values)...))) {
+          std::invoke(std::move(func_), std::move(values)...);
+          unifex::set_value(std::move(receiver_));
+        } else {
+          try {
+            std::invoke(std::move(func_), std::move(values)...);
+            unifex::set_value(std::move(receiver_));
+          } catch (...) {
+            unifex::set_error(std::move(receiver_), std::current_exception());
+          }
+        }
+      } else {
+        if constexpr (noexcept(std::invoke(
+                          std::move(func_), std::move(values)...))) {
+          unifex::set_value(
+              std::move(receiver_),
+              std::invoke(std::move(func_), std::move(values)...));
+        } else {
+          try {
+            unifex::set_value(
+                std::move(receiver_),
+                std::invoke(std::move(func_), std::move(values)...));
+          } catch (...) {
+            unifex::set_error(std::move(receiver_), std::current_exception());
+          }
+        }
+      }
+    }
+
+    template <typename Error>
+    void set_error(Error&& error) && noexcept {
+      unifex::set_error(std::move(receiver_), std::move(error));
+    }
+
+    void set_done() && noexcept {
+      unifex::set_done(std::move(receiver_));
+    }
+
+    template <
+        typename CPO,
+        typename R,
+        typename... Args,
+        std::enable_if_t<!is_receiver_cpo_v<CPO> && std::is_same_v<R, receiver>, int> = 0>
+    friend auto tag_invoke(CPO cpo, const R& r, Args&&... args) noexcept(
+        is_nothrow_callable_v<CPO, const Receiver&, Args...>)
+        -> callable_result_t<CPO, const Receiver&, Args...> {
+      return std::move(cpo)(std::as_const(r.receiver_), std::move(args)...);
+    }
+
+    template <typename Visit>
+    friend void tag_invoke(tag_t<visit_continuations>, const receiver& r, Visit&& visit) {
+      std::invoke(visit, r.receiver_);
+    }
+  };
 };
 template <typename Receiver, typename Func>
 using receiver = typename _receiver<Receiver, Func>::type;
 
-template <typename Receiver, typename Func>
-struct _receiver<Receiver, Func>::type {
-  using receiver = type;
-  UNIFEX_NO_UNIQUE_ADDRESS Func func_;
-  UNIFEX_NO_UNIQUE_ADDRESS Receiver receiver_;
-
-  template <typename... Values>
-  void set_value(Values&&... values) && noexcept {
-    using result_type = std::invoke_result_t<Func, Values...>;
-    if constexpr (std::is_void_v<result_type>) {
-      if constexpr (noexcept(std::invoke(
-                        std::move(func_), std::move(values)...))) {
-        std::invoke(std::move(func_), std::move(values)...);
-        unifex::set_value(std::move(receiver_));
-      } else {
-        try {
-          std::invoke(std::move(func_), std::move(values)...);
-          unifex::set_value(std::move(receiver_));
-        } catch (...) {
-          unifex::set_error(std::move(receiver_), std::current_exception());
-        }
-      }
-    } else {
-      if constexpr (noexcept(std::invoke(
-                        std::move(func_), std::move(values)...))) {
-        unifex::set_value(
-            std::move(receiver_),
-            std::invoke(std::move(func_), std::move(values)...));
-      } else {
-        try {
-          unifex::set_value(
-              std::move(receiver_),
-              std::invoke(std::move(func_), std::move(values)...));
-        } catch (...) {
-          unifex::set_error(std::move(receiver_), std::current_exception());
-        }
-      }
-    }
-  }
-
-  template <typename Error>
-  void set_error(Error&& error) && noexcept {
-    unifex::set_error(std::move(receiver_), std::move(error));
-  }
-
-  void set_done() && noexcept {
-    unifex::set_done(std::move(receiver_));
-  }
-
-  template <
-      typename CPO,
-      typename R,
-      typename... Args,
-      std::enable_if_t<!is_receiver_cpo_v<CPO> && std::is_same_v<R, receiver>, int> = 0>
-  friend auto tag_invoke(CPO cpo, const R& r, Args&&... args) noexcept(
-      is_nothrow_callable_v<CPO, const Receiver&, Args...>)
-      -> callable_result_t<CPO, const Receiver&, Args...> {
-    return std::move(cpo)(std::as_const(r.receiver_), std::move(args)...);
-  }
-
-  template <typename Visit>
-  friend void tag_invoke(tag_t<visit_continuations>, const receiver& r, Visit&& visit) {
-    std::invoke(visit, r.receiver_);
-  }
-};
-
 template <typename Predecessor, typename Func>
 struct _sender {
-  struct type;
+  struct type {
+    using sender = type;
+    UNIFEX_NO_UNIQUE_ADDRESS Predecessor pred_;
+    UNIFEX_NO_UNIQUE_ADDRESS Func func_;
+
+  private:
+
+    // This helper transforms an argument list into either
+    // - type_list<type_list<Result>> - if Result is non-void, or
+    // - type_list<type_list<>>       - if Result is void
+    template<typename... Args>
+    using result = type_list<
+      typename detail::result_overload<std::invoke_result_t<Func, Args...>>::type>;
+
+  public:
+
+    template <
+        template <typename...> class Variant,
+        template <typename...> class Tuple>
+    using value_types = type_list_nested_apply_t<
+      typename Predecessor::template value_types<concat_type_lists_unique_t, result>,
+      Variant,
+      Tuple>;
+
+    template <template <typename...> class Variant>
+    using error_types = typename concat_type_lists_unique_t<
+      typename Predecessor::template error_types<type_list>,
+      type_list<std::exception_ptr>>::template apply<Variant>;
+
+    template <typename Receiver>
+    using receiver = receiver<Receiver, Func>;
+
+    friend constexpr auto tag_invoke(tag_t<blocking>, const sender& sender) {
+      return blocking(sender.pred_);
+    }
+
+    template <typename Receiver>
+    auto connect(Receiver&& r) &&
+        -> operation_t<Predecessor, receiver<std::remove_cvref_t<Receiver>>> {
+      return unifex::connect(
+          std::forward<Predecessor>(pred_),
+          receiver<std::remove_cvref_t<Receiver>>{
+              std::forward<Func>(func_), std::forward<Receiver>(r)});
+    }
+
+    template <typename Receiver>
+    auto connect(Receiver&& r) &
+        -> operation_t<Predecessor&, receiver<std::remove_cvref_t<Receiver>>>{
+      return unifex::connect(
+          pred_,
+          receiver<std::remove_cvref_t<Receiver>>{func_, std::forward<Receiver>(r)});
+    }
+
+    template <typename Receiver>
+    auto connect(Receiver&& r) const &
+        -> operation_t<const Predecessor&, receiver<std::remove_cvref_t<Receiver>>> {
+      return unifex::connect(
+          pred_,
+          receiver<std::remove_cvref_t<Receiver>>{func_, std::forward<Receiver>(r)});
+    }
+  };
 };
 template <typename Predecessor, typename Func>
 using sender = typename _sender<std::remove_cvref_t<Predecessor>, std::decay_t<Func>>::type;
 
-template <typename Predecessor, typename Func>
-struct _sender<Predecessor, Func>::type {
-  using sender = type;
-  UNIFEX_NO_UNIQUE_ADDRESS Predecessor pred_;
-  UNIFEX_NO_UNIQUE_ADDRESS Func func_;
-
-private:
-
-  // This helper transforms an argument list into either
-  // - type_list<type_list<Result>> - if Result is non-void, or
-  // - type_list<type_list<>>       - if Result is void
-  template<typename... Args>
-  using result = type_list<
-    typename detail::result_overload<std::invoke_result_t<Func, Args...>>::type>;
-
-public:
-
-  template <
-      template <typename...> class Variant,
-      template <typename...> class Tuple>
-  using value_types = type_list_nested_apply_t<
-    typename Predecessor::template value_types<concat_type_lists_unique_t, result>,
-    Variant,
-    Tuple>;
-
-  template <template <typename...> class Variant>
-  using error_types = typename concat_type_lists_unique_t<
-    typename Predecessor::template error_types<type_list>,
-    type_list<std::exception_ptr>>::template apply<Variant>;
-
-  template <typename Receiver>
-  using receiver = receiver<Receiver, Func>;
-
-  friend constexpr auto tag_invoke(tag_t<blocking>, const sender& sender) {
-    return blocking(sender.pred_);
-  }
-
-  template <typename Receiver>
-  auto connect(Receiver&& r) &&
-      -> operation_t<Predecessor, receiver<std::remove_cvref_t<Receiver>>> {
-    return unifex::connect(
-        std::forward<Predecessor>(pred_),
-        receiver<std::remove_cvref_t<Receiver>>{
-            std::forward<Func>(func_), std::forward<Receiver>(r)});
-  }
-
-  template <typename Receiver>
-  auto connect(Receiver&& r) &
-      -> operation_t<Predecessor&, receiver<std::remove_cvref_t<Receiver>>>{
-    return unifex::connect(
-        pred_,
-        receiver<std::remove_cvref_t<Receiver>>{func_, std::forward<Receiver>(r)});
-  }
-
-  template <typename Receiver>
-  auto connect(Receiver&& r) const &
-      -> operation_t<const Predecessor&, receiver<std::remove_cvref_t<Receiver>>> {
-    return unifex::connect(
-        pred_,
-        receiver<std::remove_cvref_t<Receiver>>{func_, std::forward<Receiver>(r)});
-  }
-};
 } // namespace _tfx
 
 namespace _tfx_cpo {

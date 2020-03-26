@@ -24,7 +24,20 @@ namespace unifex {
 namespace _next_adapt {
   template <typename Stream, typename AdaptFunc>
   struct _stream {
-    struct type;
+    struct type {
+      Stream innerStream_;
+      AdaptFunc adapter_;
+
+      friend auto tag_invoke(tag_t<next>, type& s)
+        -> std::invoke_result_t<AdaptFunc&, next_sender_t<Stream>> {
+        return std::invoke(s.adapter_, next(s.innerStream_));
+      }
+
+      friend auto tag_invoke(tag_t<cleanup>, type& s)
+        -> cleanup_sender_t<Stream> {
+        return cleanup(s.innerStream_);
+      }
+    };
   };
   template <typename Stream, typename AdaptFunc>
   using stream =
@@ -32,21 +45,6 @@ namespace _next_adapt {
           std::remove_cvref_t<Stream>,
           std::remove_cvref_t<AdaptFunc>>::type;
 
-  template <typename Stream, typename AdaptFunc>
-  struct _stream<Stream, AdaptFunc>::type {
-    Stream innerStream_;
-    AdaptFunc adapter_;
-
-    friend auto tag_invoke(tag_t<next>, type& s)
-      -> std::invoke_result_t<AdaptFunc&, next_sender_t<Stream>> {
-      return std::invoke(s.adapter_, next(s.innerStream_));
-    }
-
-    friend auto tag_invoke(tag_t<cleanup>, type& s)
-      -> cleanup_sender_t<Stream> {
-      return cleanup(s.innerStream_);
-    }
-  };
 } // namespace _next_adapt
 
 namespace _next_adapt_cpo {
